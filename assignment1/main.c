@@ -3,14 +3,6 @@
 #include <string.h>
 #include <pthread.h>
 
-////////////////////////////////////////////////////////////////////////////////
-// MACRO DEFINITIONS
-
-// TODO: Why did I make this a macro again?
-#define busyLoop(iterations) \
-    for (int i=0, j=0; i < (iterations); i++) { \
-        j += i; \
-    } \
 
 ////////////////////////////////////////////////////////////////////////////////
 // Global variables
@@ -51,6 +43,13 @@ typedef struct {
 
 ////////////////////////////////////////////////////////////////////////////////
 // THREADS
+
+
+void busyLoop(int iterations) {
+    for (int i=0, j=0; i < (iterations); i++) {
+        j += i;
+    }
+}
 
 void periodic(void *structure) {
 
@@ -96,7 +95,6 @@ void aperiodic(void *structure) {
 }
 
 
-
 ////////////////////////////////////////////////////////////////////////////////
 //MAIN PROGRAM CODE
 
@@ -130,33 +128,37 @@ ProgramInfo parseFile(char *filename) {
 
         thread.operations = root;
 
-        while(token = strtok_r(line, " ", &state)) {
+        token = strtok_r(line, " ", &state);
+        while(token) {
 
             *operation = malloc(sizeof(Operation));
 
             switch(token[0]) {
                 case 'P':
                     thread.threadType = PERIODIC;
-                    continue;  // Don't make this an operation
+                    break;
                 case 'A':
                     thread.threadType = APERIODIC;
-                    continue;  // Don't make this an operation
+                    break;
                 case 'L':
                     (*operation)->operation = LOCK;
                     (*operation)->value = strtol(token + 1, NULL, 10);
+                    operation = &(*operation)->nextOp;
                     break;
                 case 'U':
                     (*operation)->operation = UNLOCK;
                     (*operation)->value = strtol(token + 1, NULL, 10);
+                    operation = &(*operation)->nextOp;
                     break;
                 default:
                     (*operation)->operation = BUSY_LOOP;
                     (*operation)->value = strtol(token, NULL, 10);
+                    operation = &(*operation)->nextOp;
                     break;
             }
 
-            operation = &(*operation)->nextOp;
-
+            // Get next token
+            token = strtok_r(NULL, " ", &state);
         }
 
         // Terminate last node
