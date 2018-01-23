@@ -7,6 +7,8 @@
 ////////////////////////////////////////////////////////////////////////////////
 // Global variables
 pthread_mutex_t mutexes[10] = {PTHREAD_MUTEX_ERRORCHECK};
+pthread_mutex_t activate_mut = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t activate_cond = PTHREAD_COND_INITIALIZER;
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -54,22 +56,49 @@ void busyLoop(int iterations) {
     }
 }
 
+void next_operation(Operation **ptr) {
+    if(ptr != NULL && *ptr != NULL) *ptr = (*ptr)->nextOp;
+}
+
 void *periodic(void *ptr) {
 
     Thread *thread = (Thread *)ptr;
 
     // Local variables
+    const struct timespec period = {0, thread->period * 1000000};
+    struct timespec remainder;
+    Operation *current_operation = thread->operations;
+
     // Init
 
     // Wait for activation
+    pthread_mutex_lock(&activate_mut);
+    pthread_cond_wait(&activate_cond, &activate_mut);
+    pthread_mutex_unlock(&activate_mut);
 
     while (1) {
+        switch(current_operation->operation) {
+            case LOCK      :
+                pthread_mutex_lock(&mutexes[current_operation->value]);
+                break;
+            case UNLOCK    :
+                pthread_mutex_unlock(&mutexes[current_operation->value]);
+                break;
+            case BUSY_LOOP :
+                busyLoop(current_operation->value);
+                break;
+        }
 
-        busyLoop(0);
+        next_operation(&current_operation); //advance
+        if(current_operation == NULL){ // loop back around
+            current_operation = thread->operations;
+        }
+
         // Wait for period
-
+        if(nanosleep(&period, &remainder) == -1){
+            break;
+        }
     }
-
 }
 
 void *aperiodic(void *ptr) {
@@ -209,12 +238,15 @@ void main(int argc, char* argv[]) {
 
     pthread_t threads[program.numThreads];  // TODO: Use later
 
+    pthread_mutex_lock(&activate_mut);
     for (int i=0; i < program.numThreads; i++) {
-
         switch (program.threads[0].threadType) {
             case  PERIODIC:  pthread_create(&threads[i], NULL, periodic, &program.threads[0]); break;
             case APERIODIC: aperiodic(&program.threads[0]); break;
             default: break;
         }
     }
+    pthread_cond_broadcast(&activate_cond);
+    pthread_mutex_unlock(&activate_mut);
+
 }
