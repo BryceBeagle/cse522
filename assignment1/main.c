@@ -45,10 +45,15 @@ typedef struct {
 
 } ProgramInfo;
 
+void busyLoop(int iterations);
+void next_operation(Operation **ptr);
+int msleep(int msec);
+void *periodic(void *ptr);
+void *aperiodic(void *ptr);
+ProgramInfo parseFile(char *filename);
 
 ////////////////////////////////////////////////////////////////////////////////
 // THREADS
-
 
 void busyLoop(int iterations) {
     for (int i=0, j=0; i < (iterations); i++) {
@@ -60,12 +65,21 @@ void next_operation(Operation **ptr) {
     if(ptr != NULL && *ptr != NULL) *ptr = (*ptr)->nextOp;
 }
 
+int msleep(int msec) {
+	struct timespec ts_sleep =
+	{
+		msec / 1000,
+		(msec % 1000) * 1000000L
+	};
+
+	return nanosleep(&ts_sleep, NULL);
+}
+
 void *periodic(void *ptr) {
 
     Thread *thread = (Thread *)ptr;
 
     // Local variables
-    const struct timespec period = {0, thread->period * 1000000};
     struct timespec remainder;
     Operation *current_operation = thread->operations;
 
@@ -95,7 +109,7 @@ void *periodic(void *ptr) {
         }
 
         // Wait for period
-        if(nanosleep(&period, &remainder) == -1){
+        if(msleep(thread->period) == -1){
             break;
         }
     }
