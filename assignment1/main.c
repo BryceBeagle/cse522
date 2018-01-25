@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -11,7 +12,8 @@
 // Global variables
 pthread_mutex_t mutexes[10] = {PTHREAD_MUTEX_ERRORCHECK};
 pthread_mutex_t activate_mut = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t activate_cond = PTHREAD_COND_INITIALIZER;
+pthread_cond_t activate_left = PTHREAD_COND_INITIALIZER;
+pthread_cond_t activate_right = PTHREAD_COND_INITIALIZER;
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -54,32 +56,35 @@ int msleep(struct timespec start, int msec);
 void *periodic(void *ptr);
 void *aperiodic(void *ptr);
 ProgramInfo parseFile(char *filename);
-void mouse_reader(char *filename);
+void *mouse_reader(void *filename);
 
 ////////////////////////////////////////////////////////////////////////////////
 // THREADS
-void mouse_reader(char *filename) {
+void *mouse_reader(void *filename) {
 
     int fd;
     struct input_event ie;
     unsigned char mouse_left, mouse_right;
 
-    if((fd = open(filename, O_RDONLY)) == -1) {
-        printf("Device open ERROR\n");
+    if((fd = open((char *)filename, O_RDONLY)) == -1) {
+        fprintf(stderr, "Device open ERROR\n");
         exit(-1);
     }
 
     while(read(fd, &ie, sizeof(struct input_event))){
         unsigned char *ptr = (unsigned char*)&ie;
-        mouse_left = ptr[0] & 0x1;
-        mouse_right = (ptr[0] & 0x2); //> 0;
+        mouse_left = ptr[0] & (unsigned char)0x1;
+        mouse_right = (ptr[0] & (unsigned char)0x2);
         if(mouse_left){
-            NULL;
+            fprintf(stderr, "LEFT\n");
+            pthread_cond_broadcast(&activate_left);
         }
         if(mouse_right){
-            NULL;
+            fprintf(stderr, "RIGHT\n");
+            pthread_cond_broadcast(&activate_right);
         }
     }
+    return NULL;
 }
 
 void busyLoop(int iterations) {
@@ -125,12 +130,15 @@ void *periodic(void *ptr) {
         switch(current_operation->operation) {
             case LOCK      :
                 pthread_mutex_lock(&mutexes[current_operation->value]);
+                fprintf(stderr, "%lu :: LOCK %ld\n", pthread_self(), current_operation->value);
                 break;
             case UNLOCK    :
                 pthread_mutex_unlock(&mutexes[current_operation->value]);
+                fprintf(stderr, "%lu :: UNLOCK %ld\n", pthread_self(), current_operation->value);
                 break;
             case BUSY_LOOP :
                 busyLoop(current_operation->value);
+                fprintf(stderr, "%lu :: BUSY_LOOP %ld\n", pthread_self(), current_operation->value);
                 break;
         }
 
@@ -161,13 +169,13 @@ void *aperiodic(void *ptr) {
 
     while(1) {
 
-//        if (lock) {
-//            pthread_mutex_lock(mutexes[lockNumber]);
-//        }
-//
-//        if (unlock) {
-//            pthread_mutex_unlock(mutexes[lockNumber]);
-//        }
+       // if (lock) {
+       //     pthread_mutex_lock(mutexes[lockNumber]);
+       // }
+
+       // if (unlock) {
+       //     pthread_mutex_unlock(mutexes[lockNumber]);
+       // }
 
         busyLoop(0);
         // Wait of event
@@ -284,15 +292,32 @@ int main(int argc, char* argv[]) {
     ProgramInfo program = parseFile(argv[1]);
 
     pthread_t threads[program.numThreads];  // TODO: Use later
+    pthread_t mouse_watcher;
+    cpu_set_t cpuset;
 
     pthread_mutex_lock(&activate_mut);
+
+    CPU_SET(1, &cpuset);
+    pthread_create(&mouse_watcher, NULL, mouse_reader, "/dev/input/mouse0");
+    pthread_setaffinity_np(mouse_watcher, sizeof(cpu_set_t), &cpuset);
     for (int i=0; i < program.numThreads; i++) {
-        switch (program.threads[0].threadType) {
-            case  PERIODIC:  pthread_create(&threads[i], NULL, periodic, &program.threads[0]); break;
-            case APERIODIC: aperiodic(&program.threads[0]); break;
+        switch (program.threads[i].threadType) {
+            case  PERIODIC:
+                {
+                    pthread_attr_t attr;
+                    struct sched_param param = {program.threads[i].priority};
+                    pthread_attr_init(&attr);
+                    pthread_attr_setschedpolicy(&attr, SCHED_FIFO);
+                    pthread_attr_setschedparam(&attr, &param);
+                    pthread_create(&threads[i], &attr, periodic, &program.threads[i]);
+                    pthread_setaffinity_np(threads[i], sizeof(cpu_set_t), &cpuset);
+                }
+                break;
+            // case APERIODIC: aperiodic(&program.threads[i]); break;
             default: break;
         }
     }
+
     pthread_mutex_unlock(&activate_mut);
 
     struct timespec start_time;
