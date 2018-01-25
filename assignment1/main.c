@@ -298,7 +298,7 @@ int main(int argc, char* argv[]) {
     pthread_mutex_lock(&activate_mut);
 
     CPU_SET(1, &cpuset);
-    pthread_create(&mouse_watcher, NULL, mouse_reader, "/dev/input/mouse0");
+    pthread_create(&mouse_watcher, NULL, mouse_reader, "/dev/input/mice");
     pthread_setaffinity_np(mouse_watcher, sizeof(cpu_set_t), &cpuset);
     for (int i=0; i < program.numThreads; i++) {
         switch (program.threads[i].threadType) {
