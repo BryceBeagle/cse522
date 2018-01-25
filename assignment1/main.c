@@ -2,8 +2,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
+#include <fcntl.h>
+#include <unistd.h>
 #include <time.h>
-
+#include <linux/input.h>
 
 ////////////////////////////////////////////////////////////////////////////////
 // Global variables
@@ -52,9 +54,33 @@ int msleep(struct timespec start, int msec);
 void *periodic(void *ptr);
 void *aperiodic(void *ptr);
 ProgramInfo parseFile(char *filename);
+void mouse_reader(char *filename);
 
 ////////////////////////////////////////////////////////////////////////////////
 // THREADS
+void mouse_reader(char *filename) {
+
+    int fd;
+    struct input_event ie;
+    unsigned char mouse_left, mouse_right;
+
+    if((fd = open(filename, O_RDONLY)) == -1) {
+        printf("Device open ERROR\n");
+        exit(-1);
+    }
+
+    while(read(fd, &ie, sizeof(struct input_event))){
+        unsigned char *ptr = (unsigned char*)&ie;
+        mouse_left = ptr[0] & 0x1;
+        mouse_right = (ptr[0] & 0x2); //> 0;
+        if(mouse_left){
+            NULL;
+        }
+        if(mouse_right){
+            NULL;
+        }
+    }
+}
 
 void busyLoop(int iterations) {
     for (int i=0, j=0; i < (iterations); i++) {
@@ -68,15 +94,15 @@ void next_operation(Operation **ptr) {
 
 int msleep(struct timespec start, int msec) {
 
-	start.tv_sec += (long)msec / 1000;
-	start.tv_nsec += ((long)msec%1000) * 1000000L;
+        start.tv_sec += (long)msec / 1000;
+        start.tv_nsec += ((long)msec%1000) * 1000000L;
 
-	if(start.tv_nsec > 999999999){
-		start.tv_nsec -= 1000000000;
-		start.tv_sec++;
-	}
+        if(start.tv_nsec > 999999999){
+                start.tv_nsec -= 1000000000;
+                start.tv_sec++;
+        }
 
-	return clock_nanosleep(CLOCK_REALTIME, TIMER_ABSTIME, &start, NULL);
+        return clock_nanosleep(CLOCK_REALTIME, TIMER_ABSTIME, &start, NULL);
 }
 
 void *periodic(void *ptr) {
@@ -93,8 +119,8 @@ void *periodic(void *ptr) {
     pthread_mutex_unlock(&activate_mut);
 
     while (1) {
-    	struct timespec start_time;
-    	clock_gettime(CLOCK_REALTIME, &start_time);
+        struct timespec start_time;
+        clock_gettime(CLOCK_REALTIME, &start_time);
 
         switch(current_operation->operation) {
             case LOCK      :
