@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
+#include <time.h>
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -47,7 +48,7 @@ typedef struct {
 
 void busyLoop(int iterations);
 void next_operation(Operation **ptr);
-int msleep(int msec);
+int msleep(struct timespec start, int msec);
 void *periodic(void *ptr);
 void *aperiodic(void *ptr);
 ProgramInfo parseFile(char *filename);
@@ -65,14 +66,17 @@ void next_operation(Operation **ptr) {
     if(ptr != NULL && *ptr != NULL) *ptr = (*ptr)->nextOp;
 }
 
-int msleep(int msec) {
-	struct timespec ts_sleep =
-	{
-		msec / 1000,
-		(msec % 1000) * 1000000L
-	};
+int msleep(struct timespec start, int msec) {
 
-	return nanosleep(&ts_sleep, NULL);
+	start.tv_sec += (long)msec / 1000;
+	start.tv_nsec += ((long)msec%1000) * 1000000L;
+
+	if(start.tv_nsec > 999999999){
+		start.tv_nsec -= 1000000000;
+		start.tv_sec++;
+	}
+
+	return clock_nanosleep(CLOCK_REALTIME, TIMER_ABSTIME, &start, NULL);
 }
 
 void *periodic(void *ptr) {
@@ -80,17 +84,18 @@ void *periodic(void *ptr) {
     Thread *thread = (Thread *)ptr;
 
     // Local variables
-    struct timespec remainder;
     Operation *current_operation = thread->operations;
 
     // Init
 
     // Wait for activation
     pthread_mutex_lock(&activate_mut);
-    pthread_cond_wait(&activate_cond, &activate_mut);
     pthread_mutex_unlock(&activate_mut);
 
     while (1) {
+    	struct timespec start_time;
+    	clock_gettime(CLOCK_REALTIME, &start_time);
+
         switch(current_operation->operation) {
             case LOCK      :
                 pthread_mutex_lock(&mutexes[current_operation->value]);
@@ -109,10 +114,12 @@ void *periodic(void *ptr) {
         }
 
         // Wait for period
-        if(msleep(thread->period) == -1){
+        if(msleep(start_time, thread->period) == -1){
             break;
         }
     }
+
+    return NULL;
 }
 
 void *aperiodic(void *ptr) {
@@ -246,7 +253,7 @@ ProgramInfo parseFile(char *filename) {
 
 }
 
-void main(int argc, char* argv[]) {
+int main(int argc, char* argv[]) {
 
     ProgramInfo program = parseFile(argv[1]);
 
@@ -260,7 +267,11 @@ void main(int argc, char* argv[]) {
             default: break;
         }
     }
-    pthread_cond_broadcast(&activate_cond);
     pthread_mutex_unlock(&activate_mut);
 
+    struct timespec start_time;
+    clock_gettime(CLOCK_REALTIME, &start_time);
+    msleep(start_time, program.duration);
+
+    return 0;
 }
