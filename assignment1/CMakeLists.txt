@@ -7,3 +7,5 @@ add_executable(assignment1 main.c)
 
 target_link_libraries(assignment1 m)
 target_link_libraries(assignment1 pthread)
+
+target_compile_options(assignment1 PRIVATE "-Wall")
