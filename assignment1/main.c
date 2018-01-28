@@ -7,7 +7,6 @@
 
 #include <fcntl.h>
 #include <unistd.h>
-
 #include <linux/input.h>
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -16,12 +15,9 @@ pthread_barrier_t thread_sync;
 
 pthread_mutex_t mutexes[10] = {PTHREAD_ERRORCHECK_MUTEX_INITIALIZER_NP};
 pthread_mutex_t activate_mut = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t activate_cond = PTHREAD_COND_INITIALIZER;
 
 pthread_mutex_t event_mut = PTHREAD_ERRORCHECK_MUTEX_INITIALIZER_NP;
 pthread_cond_t event_cond[2] = {PTHREAD_COND_INITIALIZER};
-
-int initialized = 0;
 
 ////////////////////////////////////////////////////////////////////////////////
 // DATA STRUCTURES
@@ -61,6 +57,8 @@ typedef struct {
 void busyLoop(long iterations);
 void next_operation(Operation **ptr);
 void do_operation(Operation **operation);
+
+int overrun(struct timespec *start_time, struct timespec *current_time, int duration);
 int msleep(struct timespec start, long msec);
 
 void *periodic(void *ptr);
@@ -86,6 +84,7 @@ void *mouse_reader(void *filename) {
         unsigned char *ptr = (unsigned char*)&ie;
         mouse_left  = ptr[0] & (unsigned char)0x1;
         mouse_right = ptr[0] & (unsigned char)0x2;
+
         if(mouse_left){
             fprintf(stderr, "LEFT\n");
             pthread_mutex_lock(&event_mut);
@@ -134,6 +133,28 @@ void do_operation(Operation **operation) {
 
 }
 
+// start_time + duration >? current_time
+int overrun(struct timespec *start_time, struct timespec *current_time, int duration) {
+
+    struct timespec end_time = {
+        start_time->tv_sec + (duration / 1000),
+        start_time->tv_sec + ((duration % 1000) * 1000000)
+    };
+
+    if (end_time.tv_nsec / 1000000000) {
+        end_time.tv_sec += 1;
+        end_time.tv_nsec -= 1000000000;
+    }
+
+    if (current_time->tv_sec == end_time.tv_sec) {
+        return current_time->tv_nsec > end_time.tv_nsec;
+    }
+    else {
+        return current_time->tv_sec > end_time.tv_sec;
+    }
+
+}
+
 int msleep(struct timespec start, long msec) {
 
         start.tv_sec += msec / 1000;
@@ -150,33 +171,40 @@ int msleep(struct timespec start, long msec) {
 void *periodic(void *ptr) {
 
     Thread *thread = (Thread *)ptr;
-    struct timespec start_time;
+    struct timespec start_time, current_time;
 
     // Wait for activation
     pthread_barrier_wait(&thread_sync);  // Sync all threads
-    pthread_mutex_lock(&activate_mut);
-    while (!initialized) {
-        pthread_cond_wait(&activate_cond, &activate_mut);
-    }
-    pthread_mutex_unlock(&activate_mut);
 
     while (1) {
 
         Operation *current_operation = thread->operations;
 
-        // Get current time
+        // Get start time of thread
         clock_gettime(CLOCK_REALTIME, &start_time);
 
         while (current_operation != NULL) {
 
             do_operation(&current_operation);
-            next_operation(&current_operation); //advance
 
-            // If thread has gone over period duration, finish current execution and restart it
-            if (msleep(start_time, thread->period) == -1) {
+            pthread_testcancel();
+
+            // Ensure thread has not overrun its period
+            clock_gettime(CLOCK_REALTIME, &current_time);
+            if (overrun(&start_time, &current_time, thread->period)) {
+                fputs("Overrun\n", stderr);
                 break;
             }
+
+            next_operation(&current_operation); //advance
+
         }
+
+        // Wait for completion of period if thread has finished early
+        if (msleep(start_time, thread->period) == -1) {
+            break;
+        }
+
     }
 
     return NULL;
@@ -187,12 +215,7 @@ void *aperiodic(void *ptr) {
     Thread *thread = (Thread *)ptr;
 
     // Wait for activation
-    pthread_barrier_wait(&thread_sync);  // Sync all threads
-    pthread_mutex_lock(&activate_mut);
-    while (!initialized) {
-        pthread_cond_wait(&activate_cond, &activate_mut);
-    }
-    pthread_mutex_unlock(&activate_mut);
+    pthread_barrier_wait(&thread_sync);
 
     while(1) {
 
@@ -208,7 +231,11 @@ void *aperiodic(void *ptr) {
             fprintf(stderr, "Click detected\n");
 
             do_operation(&current_operation);
+
+            pthread_testcancel();
+
             next_operation(&current_operation);
+
         }
     }
     return NULL;
@@ -359,14 +386,17 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    pthread_barrier_wait(&thread_sync);      // Wait for children to be initialized and ready for broadcast
-    initialized = 1;
-    pthread_cond_broadcast(&activate_cond);  // Start all threads
-    pthread_mutex_unlock(&activate_mut);
+    pthread_barrier_wait(&thread_sync);
+    fprintf(stderr, "Starting\n");
 
-    struct timespec start_time;
-    clock_gettime(CLOCK_REALTIME, &start_time);
-    msleep(start_time, program.duration);
+    usleep((unsigned int) program.duration * 1000);
+
+    // Terminate all threads (cleanly)
+    for (int i = 0; i < program.numThreads; i++) {
+        fprintf(stderr, "Killing %i\n", i);
+        int err = pthread_cancel(threads[i]);
+        fprintf(stderr, "Thread %i closed: %i\n", i, err);
+    }
 
     return 0;
 }
