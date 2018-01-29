@@ -8,6 +8,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <linux/input.h>
+#include <sys/syscall.h>
 
 ////////////////////////////////////////////////////////////////////////////////
 // Global variables
@@ -69,13 +70,14 @@ void *mouse_reader(void *filename);
 // THREADS
 
 void *mouse_reader(void *filename) {
+    fprintf(stderr, "mouse_reader :: %ld\n", syscall(SYS_gettid));
 
     int fd;
     struct input_event ie;
     unsigned char mouse_left, mouse_right;
 
     if((fd = open((char *)filename, O_RDONLY)) == -1) {
-        fprintf(stderr, "Device open ERROR\n");
+        // fprintf(stderr, "Device open ERROR\n");
         exit(-1);
     }
 
@@ -85,13 +87,13 @@ void *mouse_reader(void *filename) {
         mouse_right = ptr[0] & (unsigned char)0x2;
 
         if(mouse_left){
-            fprintf(stderr, "LEFT\n");
+            // fprintf(stderr, "LEFT\n");
             pthread_mutex_lock(&event_mut);
             pthread_cond_broadcast(&event_cond[LEFT]);
             pthread_mutex_unlock(&event_mut);
         }
         if(mouse_right){
-            fprintf(stderr, "RIGHT\n");
+            // fprintf(stderr, "RIGHT\n");
             pthread_mutex_lock(&event_mut);
             pthread_cond_broadcast(&event_cond[RIGHT]);
             pthread_mutex_unlock(&event_mut);
@@ -114,15 +116,15 @@ void do_operation(Operation **operation) {
     switch((*operation)->operation) {
         case LOCK      :
             pthread_mutex_lock(&mutexes[(*operation)->value]);
-            fprintf(stdout, "%lu :: LOCK %ld\n", pthread_self(), (*operation)->value);
+            // fprintf(stdout, "%lu :: LOCK %ld\n", pthread_self(), (*operation)->value);
             break;
         case UNLOCK    :
             pthread_mutex_unlock(&mutexes[(*operation)->value]);
-            fprintf(stdout, "%lu :: UNLOCK %ld\n", pthread_self(), (*operation)->value);
+            // fprintf(stdout, "%lu :: UNLOCK %ld\n", pthread_self(), (*operation)->value);
             break;
         case BUSY_LOOP :
             busyLoop((*operation)->value);
-            fprintf(stdout, "%lu :: UNLOCK %ld\n", pthread_self(), (*operation)->value);
+            // fprintf(stdout, "%lu :: UNLOCK %ld\n", pthread_self(), (*operation)->value);
             break;
     }
 }
@@ -163,6 +165,7 @@ int msleep(struct timespec start, long msec) {
 }
 
 void *periodic(void *ptr) {
+    fprintf(stderr, "periodic :: %ld\n", syscall(SYS_gettid));
 
     Thread *thread = (Thread *)ptr;
     struct timespec start_time, current_time;
@@ -205,6 +208,7 @@ void *periodic(void *ptr) {
 }
 
 void *aperiodic(void *ptr) {
+    fprintf(stderr, "aperiodic :: %ld\n", syscall(SYS_gettid));
 
     Thread *thread = (Thread *)ptr;
 
@@ -217,7 +221,7 @@ void *aperiodic(void *ptr) {
         pthread_mutex_lock(&event_mut);
         pthread_cond_wait(&event_cond[thread->event], &event_mut);
         pthread_mutex_unlock(&event_mut);
-        fprintf(stderr, "Click detected\n");
+        // fprintf(stderr, "Click detected\n");
 
         Operation *current_operation = thread->operations;
 
@@ -340,6 +344,7 @@ ProgramInfo parseFile(char *filename) {
 }
 
 int main(int argc, char* argv[]) {
+    fprintf(stderr, "main :: %ld\n", syscall(SYS_gettid));
 
     ProgramInfo program = parseFile(argv[1]);
 
@@ -381,15 +386,15 @@ int main(int argc, char* argv[]) {
     }
 
     pthread_barrier_wait(&thread_sync);
-    fprintf(stderr, "Starting\n");
+    // fprintf(stderr, "Starting\n");
 
     usleep((unsigned int) program.duration * 1000);
 
     // Terminate all threads (cleanly)
     for (int i = 0; i < program.numThreads; i++) {
-        fprintf(stderr, "Killing %i\n", i);
+        // fprintf(stderr, "Killing %i\n", i);
         int err = pthread_cancel(threads[i]);
-        fprintf(stderr, "Thread %i closed: %i\n", i, err);
+        // fprintf(stderr, "Thread %i closed: %i\n", i, err);
     }
 
     return 0;
