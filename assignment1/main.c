@@ -30,7 +30,6 @@ typedef struct Operation{
 
     OperationType     operation;
     unsigned long     value;  // Mutex number or number of iterations. long was chosen arbitrarily
-
     struct Operation *nextOp;
 
 } Operation;
@@ -112,7 +111,6 @@ void next_operation(Operation **ptr) {
 }
 
 void do_operation(Operation **operation) {
-
     switch((*operation)->operation) {
         case LOCK      :
             pthread_mutex_lock(&mutexes[(*operation)->value]);
@@ -124,13 +122,9 @@ void do_operation(Operation **operation) {
             break;
         case BUSY_LOOP :
             busyLoop((*operation)->value);
-
-            struct timespec t;
-            clock_gettime(CLOCK_REALTIME, &t);
             fprintf(stdout, "%lu :: UNLOCK %ld\n", pthread_self(), (*operation)->value);
             break;
     }
-
 }
 
 // start_time + duration >? current_time
@@ -219,16 +213,15 @@ void *aperiodic(void *ptr) {
 
     while(1) {
 
+        // Wait for next event
+        pthread_mutex_lock(&event_mut);
+        pthread_cond_wait(&event_cond[thread->event], &event_mut);
+        pthread_mutex_unlock(&event_mut);
+        fprintf(stderr, "Click detected\n");
+
         Operation *current_operation = thread->operations;
 
         while (current_operation != NULL) {
-
-            // Wait for next event
-            pthread_mutex_lock(&event_mut);
-            pthread_cond_wait(&event_cond[thread->event], &event_mut);
-            pthread_mutex_unlock(&event_mut);
-
-            fprintf(stderr, "Click detected\n");
 
             do_operation(&current_operation);
 
@@ -356,6 +349,7 @@ int main(int argc, char* argv[]) {
     pthread_barrier_init(&thread_sync, NULL, program.numThreads + 1); // Parent thread + created threads
 
     cpu_set_t cpuset;
+    CPU_ZERO(&cpuset);
     CPU_SET(1, &cpuset);
 
     // Lock activation mutex
