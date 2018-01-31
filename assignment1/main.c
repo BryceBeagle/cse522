@@ -120,15 +120,15 @@ void do_operation(Operation **operation) {
     switch((*operation)->operation) {
         case LOCK      :
             pthread_mutex_lock(&mutexes[(*operation)->value]);
-            // fprintf(stdout, "%lu :: LOCK %ld\n", pthread_self(), (*operation)->value);
+            fprintf(stdout, "%lu :: LOCK %ld\n", get_tid(), (*operation)->value);
             break;
         case UNLOCK    :
             pthread_mutex_unlock(&mutexes[(*operation)->value]);
-            // fprintf(stdout, "%lu :: UNLOCK %ld\n", pthread_self(), (*operation)->value);
+            fprintf(stdout, "%lu :: UNLOCK %ld\n", get_tid(), (*operation)->value);
             break;
         case BUSY_LOOP :
             busyLoop((*operation)->value);
-            // fprintf(stdout, "%lu :: UNLOCK %ld\n", pthread_self(), (*operation)->value);
+            fprintf(stdout, "%lu :: LOOP %ld\n", get_tid(), (*operation)->value);
             break;
     }
 }
@@ -169,10 +169,10 @@ int msleep(struct timespec start, long msec) {
 }
 
 void *periodic(void *ptr) {
-    fprintf(stderr, "periodic :: %ld\n", get_tid());
-
     Thread *thread = (Thread *)ptr;
     struct timespec start_time;
+
+    fprintf(stderr, "periodic :: %ld Priority = %u\n", get_tid(), thread->priority);
 
     // Wait for activation
     pthread_barrier_wait(&thread_sync);  // Sync all threads
@@ -187,11 +187,11 @@ void *periodic(void *ptr) {
         while (current_operation != NULL) {
             do_operation(&current_operation);
             next_operation(&current_operation); //advance
-            pthread_yield();
         }
 
         // Wait for completion of period if thread has finished early
         if (msleep(start_time, thread->period) == -1) {
+            fprintf(stderr, "BREAKING %ld\n", get_tid());
             break;
         }
     }
@@ -225,7 +225,7 @@ void *aperiodic(void *ptr) {
             pthread_yield();
         }
     }
-    return NULL;
+    // return NULL;
 }
 
 
