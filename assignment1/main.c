@@ -15,7 +15,6 @@
 pthread_barrier_t thread_sync;
 
 pthread_mutex_t mutexes[10] = {PTHREAD_ERRORCHECK_MUTEX_INITIALIZER_NP};
-pthread_mutex_t activate_mut = PTHREAD_MUTEX_INITIALIZER;
 
 pthread_mutex_t event_mut = PTHREAD_ERRORCHECK_MUTEX_INITIALIZER_NP;
 pthread_cond_t event_cond[2] = {PTHREAD_COND_INITIALIZER};
@@ -65,19 +64,24 @@ void *periodic(void *ptr);
 void *aperiodic(void *ptr);
 ProgramInfo parseFile(char *filename);
 void *mouse_reader(void *filename);
+long int get_tid();
 
 ////////////////////////////////////////////////////////////////////////////////
 // THREADS
 
+long int get_tid() {
+    return syscall(SYS_gettid);
+}
+
 void *mouse_reader(void *filename) {
-    fprintf(stderr, "mouse_reader :: %ld\n", syscall(SYS_gettid));
+    fprintf(stderr, "mouse_reader :: %ld\n", get_tid());
 
     int fd;
     struct input_event ie;
     unsigned char mouse_left, mouse_right;
 
     if((fd = open((char *)filename, O_RDONLY)) == -1) {
-        // fprintf(stderr, "Device open ERROR\n");
+        fprintf(stderr, "Device open ERROR\n");
         exit(-1);
     }
 
@@ -165,50 +169,38 @@ int msleep(struct timespec start, long msec) {
 }
 
 void *periodic(void *ptr) {
-    fprintf(stderr, "periodic :: %ld\n", syscall(SYS_gettid));
+    fprintf(stderr, "periodic :: %ld\n", get_tid());
 
     Thread *thread = (Thread *)ptr;
-    struct timespec start_time, current_time;
+    struct timespec start_time;
 
     // Wait for activation
     pthread_barrier_wait(&thread_sync);  // Sync all threads
 
     while (1) {
-
-        Operation *current_operation = thread->operations;
-
         // Get start time of thread
         clock_gettime(CLOCK_REALTIME, &start_time);
 
+        pthread_testcancel();
+        Operation *current_operation = thread->operations;
+
         while (current_operation != NULL) {
-
             do_operation(&current_operation);
-
-            pthread_testcancel();
-
-            // Ensure thread has not overrun its period
-            clock_gettime(CLOCK_REALTIME, &current_time);
-            if (overrun(&start_time, &current_time, thread->period)) {
-                fputs("Overrun\n", stderr);
-                break;
-            }
-
             next_operation(&current_operation); //advance
-
+            pthread_yield();
         }
 
         // Wait for completion of period if thread has finished early
         if (msleep(start_time, thread->period) == -1) {
             break;
         }
-
     }
 
     return NULL;
 }
 
 void *aperiodic(void *ptr) {
-    fprintf(stderr, "aperiodic :: %ld\n", syscall(SYS_gettid));
+    fprintf(stderr, "aperiodic :: %ld\n", get_tid());
 
     Thread *thread = (Thread *)ptr;
 
@@ -223,16 +215,14 @@ void *aperiodic(void *ptr) {
         pthread_mutex_unlock(&event_mut);
         // fprintf(stderr, "Click detected\n");
 
+        pthread_testcancel();
+
         Operation *current_operation = thread->operations;
 
         while (current_operation != NULL) {
-
             do_operation(&current_operation);
-
-            pthread_testcancel();
-
             next_operation(&current_operation);
-
+            pthread_yield();
         }
     }
     return NULL;
@@ -344,7 +334,7 @@ ProgramInfo parseFile(char *filename) {
 }
 
 int main(int argc, char* argv[]) {
-    fprintf(stderr, "main :: %ld\n", syscall(SYS_gettid));
+    fprintf(stderr, "main :: %ld\n", get_tid());
 
     ProgramInfo program = parseFile(argv[1]);
 
@@ -358,7 +348,6 @@ int main(int argc, char* argv[]) {
     CPU_SET(1, &cpuset);
 
     // Lock activation mutex
-    pthread_mutex_lock(&activate_mut);
 
     pthread_create(&mouse_watcher, NULL, mouse_reader, "/dev/input/mice");
     pthread_setaffinity_np(mouse_watcher, sizeof(cpu_set_t), &cpuset);
@@ -386,15 +375,15 @@ int main(int argc, char* argv[]) {
     }
 
     pthread_barrier_wait(&thread_sync);
-    // fprintf(stderr, "Starting\n");
+    fprintf(stderr, "Starting\n");
 
     usleep((unsigned int) program.duration * 1000);
 
     // Terminate all threads (cleanly)
     for (int i = 0; i < program.numThreads; i++) {
-        // fprintf(stderr, "Killing %i\n", i);
         int err = pthread_cancel(threads[i]);
-        // fprintf(stderr, "Thread %i closed: %i\n", i, err);
+        fprintf(stderr, "Thread %i canceled: %i\n", i, err);
+        fprintf(stderr, "Thread %i closed: %i\n", i, pthread_join(threads[i], NULL));
     }
 
     return 0;
