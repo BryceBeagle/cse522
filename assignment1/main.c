@@ -14,7 +14,8 @@
 // Global variables
 pthread_barrier_t thread_sync;
 
-pthread_mutex_t mutexes[10] = {PTHREAD_ERRORCHECK_MUTEX_INITIALIZER_NP};
+pthread_mutexattr_t mta;
+pthread_mutex_t mutexes[10];
 
 pthread_mutex_t event_mut = PTHREAD_ERRORCHECK_MUTEX_INITIALIZER_NP;
 pthread_cond_t event_cond[2] = {PTHREAD_COND_INITIALIZER};
@@ -347,7 +348,12 @@ int main(int argc, char* argv[]) {
     CPU_ZERO(&cpuset);
     CPU_SET(1, &cpuset);
 
-    // Lock activation mutex
+    // Initialize Mutex
+    pthread_mutexattr_init(&mta);
+    pthread_mutexattr_setprotocol(&mta, PTHREAD_PRIO_INHERIT);
+    for (int i = 0; i < 10; i++) {
+        pthread_mutex_init(&mutexes[i], &mta);
+    }
 
     pthread_create(&mouse_watcher, NULL, mouse_reader, "/dev/input/mice");
     pthread_setaffinity_np(mouse_watcher, sizeof(cpu_set_t), &cpuset);
