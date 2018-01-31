@@ -4,7 +4,7 @@
 #include <string.h>
 
 #include <pthread.h>
-
+#include <errno.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <linux/input.h>
@@ -121,15 +121,15 @@ void do_operation(Operation **operation) {
     switch((*operation)->operation) {
         case LOCK      :
             pthread_mutex_lock(&mutexes[(*operation)->value]);
-            fprintf(stdout, "%lu :: LOCK %ld\n", get_tid(), (*operation)->value);
+            // fprintf(stdout, "%lu :: LOCK %ld\n", get_tid(), (*operation)->value);
             break;
         case UNLOCK    :
             pthread_mutex_unlock(&mutexes[(*operation)->value]);
-            fprintf(stdout, "%lu :: UNLOCK %ld\n", get_tid(), (*operation)->value);
+            // fprintf(stdout, "%lu :: UNLOCK %ld\n", get_tid(), (*operation)->value);
             break;
         case BUSY_LOOP :
             busyLoop((*operation)->value);
-            fprintf(stdout, "%lu :: LOOP %ld\n", get_tid(), (*operation)->value);
+            // fprintf(stdout, "%lu :: LOOP %ld\n", get_tid(), (*operation)->value);
             break;
     }
 }
@@ -172,8 +172,16 @@ int msleep(struct timespec start, long msec) {
 void *periodic(void *ptr) {
     Thread *thread = (Thread *)ptr;
     struct timespec start_time;
+    int my_policy;
+    struct sched_param my_param;
 
-    fprintf(stderr, "periodic :: %ld Priority = %u\n", get_tid(), thread->priority);
+    pthread_getschedparam (pthread_self(), &my_policy, &my_param);
+    fprintf (stderr, "# periodic :: thread_routine running at %s/%d\n",
+        (my_policy == SCHED_FIFO ? "FIFO"
+        : (my_policy == SCHED_RR ? "RR"
+        : (my_policy == SCHED_OTHER ? "OTHER"
+        : "unknown"))),
+        my_param.sched_priority);
 
     // Wait for activation
     pthread_barrier_wait(&thread_sync);  // Sync all threads
@@ -369,15 +377,28 @@ int main(int argc, char* argv[]) {
 
         // Set thread priority, scheduling policy (FIFO), and affinity (1 CPU)
         param.sched_priority = program.threads[i].priority;
+        pthread_attr_setinheritsched(&attr, PTHREAD_EXPLICIT_SCHED);
         pthread_attr_setschedparam(&attr, &param);
-        pthread_attr_setschedpolicy(&attr, SCHED_FIFO);
+        pthread_attr_setschedpolicy(&attr, SCHED_RR);
+        // pthread_attr_setschedpolicy(&attr, SCHED_FIFO);
         pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &cpuset);
 
         // Start thread using attr struct
+        int err;
         switch (program.threads[i].thread_type) {
-            case  PERIODIC: pthread_create(&threads[i], &attr,  periodic, &program.threads[i]); break;
-            case APERIODIC: pthread_create(&threads[i], &attr, aperiodic, &program.threads[i]); break;
+            case  PERIODIC:
+                err = pthread_create(&threads[i], &attr,  periodic, &program.threads[i]);
+                break;
+            case APERIODIC:
+                err = pthread_create(&threads[i], &attr, aperiodic, &program.threads[i]);
+                break;
         }
+        fprintf(stderr, "error code %s\n",
+            (err == EAGAIN ? "EAGAIN"
+            : (err == EINVAL ? "EINVAL"
+            : (err == EPERM ? "EPERM"
+            : (err == 0 ? "GOOD"
+            : "unknown")))));
     }
 
     pthread_barrier_wait(&thread_sync);
