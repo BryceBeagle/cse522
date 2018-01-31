@@ -42,6 +42,8 @@ typedef struct Thread {
     unsigned long period;    // long was chosen arbitrarily
     unsigned long event;     // long was chosen arbitrarily
 
+    unsigned int  thread_number;  // TODO: Remove thread_number
+
     Operation    *operations;
 
 } Thread;
@@ -56,7 +58,7 @@ typedef struct {
 
 void busyLoop(long iterations);
 void next_operation(Operation **ptr);
-void do_operation(Operation **operation);
+void do_operation(Operation **operation, unsigned int thread_number);  // TODO: Remove thread_number
 
 int overrun(struct timespec *start_time, struct timespec *current_time, int duration);
 int msleep(struct timespec start, long msec);
@@ -112,21 +114,29 @@ void next_operation(Operation **ptr) {
     if(ptr != NULL && *ptr != NULL) *ptr = (*ptr)->nextOp;
 }
 
-void do_operation(Operation **operation) {
+void do_operation(Operation **operation, unsigned int thread_number) {  // TODO: Remove thread_number
+
+    // Disable thread cancellation
+    pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
+
     switch((*operation)->operation) {
         case LOCK      :
+            // fprintf(stdout, "Thread %u :: LOCK      %ld\n", thread_number, (*operation)->value);
             pthread_mutex_lock(&mutexes[(*operation)->value]);
-            // fprintf(stdout, "%lu :: LOCK %ld\n", pthread_self(), (*operation)->value);
             break;
         case UNLOCK    :
+            // fprintf(stdout, "Thread %u :: UNLOCK    %ld\n", thread_number, (*operation)->value);
             pthread_mutex_unlock(&mutexes[(*operation)->value]);
-            // fprintf(stdout, "%lu :: UNLOCK %ld\n", pthread_self(), (*operation)->value);
             break;
         case BUSY_LOOP :
+            // fprintf(stdout, "Thread %u :: BUSY LOOP %ld\n", thread_number, (*operation)->value);
             busyLoop((*operation)->value);
-            // fprintf(stdout, "%lu :: UNLOCK %ld\n", pthread_self(), (*operation)->value);
             break;
+
     }
+
+    // Re-enable thread cancellation
+    pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
 }
 
 // start_time + duration >? current_time
@@ -182,7 +192,7 @@ void *periodic(void *ptr) {
 
         while (current_operation != NULL) {
 
-            do_operation(&current_operation);
+            do_operation(&current_operation, thread->thread_number);  // TODO: Remove thread_number
 
             pthread_testcancel();
 
@@ -221,16 +231,14 @@ void *aperiodic(void *ptr) {
         pthread_mutex_lock(&event_mut);
         pthread_cond_wait(&event_cond[thread->event], &event_mut);
         pthread_mutex_unlock(&event_mut);
-        // fprintf(stderr, "Click detected\n");
+
+        fprintf(stderr, "Click detected\n");
 
         Operation *current_operation = thread->operations;
 
         while (current_operation != NULL) {
 
-            do_operation(&current_operation);
-
-            pthread_testcancel();
-
+            do_operation(&current_operation, thread->thread_number);  // TODO: Remove thread_number
             next_operation(&current_operation);
 
         }
@@ -265,6 +273,8 @@ ProgramInfo parseFile(char *filename) {
     for (unsigned int i = 0; i < program.numThreads; i++) {
 
         Thread *thread = &program.threads[i];
+
+        thread->thread_number = i;  // TODO: Remove thread_number
 
         // Get line declaring thread
         fgets(line, sizeof(line), file);
@@ -392,9 +402,13 @@ int main(int argc, char* argv[]) {
 
     // Terminate all threads (cleanly)
     for (int i = 0; i < program.numThreads; i++) {
-        // fprintf(stderr, "Killing %i\n", i);
-        int err = pthread_cancel(threads[i]);
-        // fprintf(stderr, "Thread %i closed: %i\n", i, err);
+        pthread_cancel(threads[i]);
+        // fprintf(stderr, "Thread %i cancellation requested\n", i);
+    }
+
+    // Wait for all threads to exit
+    for (int i = 0; i < program.numThreads; i++) {
+        pthread_join(threads[i], NULL);
     }
 
     return 0;
