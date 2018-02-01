@@ -94,13 +94,13 @@ void *mouse_reader(void *filename) {
         mouse_right = ptr[0] & (unsigned char)0x2;
 
         if(mouse_left){
-            // fprintf(stderr, "LEFT\n");
+            fprintf(stderr, "LEFT\n");
             pthread_mutex_lock(&event_mut);
             pthread_cond_broadcast(&event_cond[LEFT]);
             pthread_mutex_unlock(&event_mut);
         }
         if(mouse_right){
-            // fprintf(stderr, "RIGHT\n");
+            fprintf(stderr, "RIGHT\n");
             pthread_mutex_lock(&event_mut);
             pthread_cond_broadcast(&event_cond[RIGHT]);
             pthread_mutex_unlock(&event_mut);
@@ -126,19 +126,19 @@ void do_operation(Operation **operation, unsigned int thread_number) {  // TODO:
 
     switch((*operation)->operation) {
         case LOCK      :
-            fprintf(stdout, "Thread %u :: LOCK      %ld\n", thread_number, (*operation)->value);
+            // fprintf(stdout, "Thread %u :: LOCK      %ld\n", thread_number, (*operation)->value);
             pthread_mutex_lock(&mutexes[(*operation)->value]);
-            // fprintf(stdout, "%lu :: LOCK %ld\n", get_tid(), (*operation)->value);
+            fprintf(stdout, "%lu :: LOCK %ld\n", get_tid(), (*operation)->value);
             break;
         case UNLOCK    :
-            fprintf(stdout, "Thread %u :: UNLOCK    %ld\n", thread_number, (*operation)->value);
+            // fprintf(stdout, "Thread %u :: UNLOCK    %ld\n", thread_number, (*operation)->value);
             pthread_mutex_unlock(&mutexes[(*operation)->value]);
-            // fprintf(stdout, "%lu :: UNLOCK %ld\n", get_tid(), (*operation)->value);
+            fprintf(stdout, "%lu :: UNLOCK %ld\n", get_tid(), (*operation)->value);
             break;
         case BUSY_LOOP :
-            fprintf(stdout, "Thread %u :: BUSY LOOP %ld\n", thread_number, (*operation)->value);
+            // fprintf(stdout, "Thread %u :: BUSY LOOP %ld\n", thread_number, (*operation)->value);
             busyLoop((*operation)->value);
-            // fprintf(stdout, "%lu :: LOOP %ld\n", get_tid(), (*operation)->value);
+            fprintf(stdout, "%lu :: LOOP %ld\n", get_tid(), (*operation)->value);
             break;
 
     }
@@ -189,7 +189,8 @@ void *periodic(void *ptr) {
     struct sched_param my_param;
 
     pthread_getschedparam (pthread_self(), &my_policy, &my_param);
-    fprintf (stderr, "# periodic :: thread_routine running at %s/%d\n",
+    fprintf (stderr, "# periodic %ld :: thread_routine running at %s/%d\n",
+        get_tid(),
         (my_policy == SCHED_FIFO ? "FIFO"
         : (my_policy == SCHED_RR ? "RR"
         : (my_policy == SCHED_OTHER ? "OTHER"
@@ -212,7 +213,7 @@ void *periodic(void *ptr) {
         }
 
         // Wait for completion of period if thread has finished early
-        if (msleep(start_time, thread->period) == -1) {
+        if (msleep(start_time, thread->period) != 0) {
             fprintf(stderr, "BREAKING %ld\n", get_tid());
             break;
         }
@@ -393,27 +394,24 @@ int main(int argc, char* argv[]) {
         // Set thread priority, scheduling policy (FIFO), and affinity (1 CPU)
         param.sched_priority = program.threads[i].priority;
         pthread_attr_setinheritsched(&attr, PTHREAD_EXPLICIT_SCHED);
+        pthread_attr_setschedpolicy(&attr, SCHED_FIFO);
         pthread_attr_setschedparam(&attr, &param);
-        pthread_attr_setschedpolicy(&attr, SCHED_RR);
-        // pthread_attr_setschedpolicy(&attr, SCHED_FIFO);
         pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &cpuset);
 
+        void *(*thread_function)(void *ptr) =
+              (program.threads[i].thread_type ==  PERIODIC ? &periodic
+            : (program.threads[i].thread_type == APERIODIC ? &aperiodic
+            :  NULL));
+
         // Start thread using attr struct
-        int err;
-        switch (program.threads[i].thread_type) {
-            case  PERIODIC:
-                err = pthread_create(&threads[i], &attr,  periodic, &program.threads[i]);
-                break;
-            case APERIODIC:
-                err = pthread_create(&threads[i], &attr, aperiodic, &program.threads[i]);
-                break;
-        }
-        fprintf(stderr, "error code %s\n",
-            (err == EAGAIN ? "EAGAIN"
-            : (err == EINVAL ? "EINVAL"
-            : (err == EPERM ? "EPERM"
-            : (err == 0 ? "GOOD"
-            : "unknown")))));
+        // int err =
+        pthread_create(&threads[i], &attr, thread_function, &program.threads[i]);
+        // fprintf(stderr, "error code %s\n",
+        //     (err == EAGAIN ? "EAGAIN"
+        //     : (err == EINVAL ? "EINVAL"
+        //     : (err == EPERM ? "EPERM"
+        //     : (err == 0 ? "GOOD"
+        //     : "unknown")))));
     }
 
     pthread_barrier_wait(&thread_sync);
