@@ -4,7 +4,7 @@
 #include <string.h>
 
 #include <pthread.h>
-#include <errno.h>
+
 #include <fcntl.h>
 #include <unistd.h>
 #include <linux/input.h>
@@ -42,8 +42,6 @@ typedef struct Thread {
     unsigned long period;    // long was chosen arbitrarily
     unsigned long event;     // long was chosen arbitrarily
 
-    unsigned int  thread_number;  // TODO: Remove thread_number
-
     Operation    *operations;
 
 } Thread;
@@ -58,7 +56,7 @@ typedef struct {
 
 void busyLoop(long iterations);
 void next_operation(Operation **ptr);
-void do_operation(Operation **operation, unsigned int thread_number);  // TODO: Remove thread_number
+void do_operation(Operation **operation);
 
 int overrun(struct timespec *start_time, struct timespec *current_time, int duration);
 int msleep(struct timespec start, long msec);
@@ -119,32 +117,21 @@ void next_operation(Operation **ptr) {
     if(ptr != NULL && *ptr != NULL) *ptr = (*ptr)->nextOp;
 }
 
-void do_operation(Operation **operation, unsigned int thread_number) {  // TODO: Remove thread_number
-
-    // Disable thread cancellation
-    pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
-
+void do_operation(Operation **operation) {
     switch((*operation)->operation) {
         case LOCK      :
-            fprintf(stdout, "Thread %u :: LOCK      %ld\n", thread_number, (*operation)->value);
             pthread_mutex_lock(&mutexes[(*operation)->value]);
-            // fprintf(stdout, "%lu :: LOCK %ld\n", get_tid(), (*operation)->value);
+            fprintf(stdout, "%lu :: LOCK %ld\n", get_tid(), (*operation)->value);
             break;
         case UNLOCK    :
-            fprintf(stdout, "Thread %u :: UNLOCK    %ld\n", thread_number, (*operation)->value);
             pthread_mutex_unlock(&mutexes[(*operation)->value]);
-            // fprintf(stdout, "%lu :: UNLOCK %ld\n", get_tid(), (*operation)->value);
+            fprintf(stdout, "%lu :: UNLOCK %ld\n", get_tid(), (*operation)->value);
             break;
         case BUSY_LOOP :
-            fprintf(stdout, "Thread %u :: BUSY LOOP %ld\n", thread_number, (*operation)->value);
             busyLoop((*operation)->value);
-            // fprintf(stdout, "%lu :: LOOP %ld\n", get_tid(), (*operation)->value);
+            fprintf(stdout, "%lu :: LOOP %ld\n", get_tid(), (*operation)->value);
             break;
-
     }
-
-    // Re-enable thread cancellation
-    pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
 }
 
 // start_time + duration >? current_time
@@ -185,16 +172,8 @@ int msleep(struct timespec start, long msec) {
 void *periodic(void *ptr) {
     Thread *thread = (Thread *)ptr;
     struct timespec start_time;
-    int my_policy;
-    struct sched_param my_param;
 
-    pthread_getschedparam (pthread_self(), &my_policy, &my_param);
-    fprintf (stderr, "# periodic :: thread_routine running at %s/%d\n",
-        (my_policy == SCHED_FIFO ? "FIFO"
-        : (my_policy == SCHED_RR ? "RR"
-        : (my_policy == SCHED_OTHER ? "OTHER"
-        : "unknown"))),
-        my_param.sched_priority);
+    fprintf(stderr, "periodic :: %ld Priority = %u\n", get_tid(), thread->priority);
 
     // Wait for activation
     pthread_barrier_wait(&thread_sync);  // Sync all threads
@@ -207,7 +186,7 @@ void *periodic(void *ptr) {
         Operation *current_operation = thread->operations;
 
         while (current_operation != NULL) {
-            do_operation(&current_operation, thread->thread_number);
+            do_operation(&current_operation);
             next_operation(&current_operation); //advance
         }
 
@@ -242,12 +221,12 @@ void *aperiodic(void *ptr) {
         Operation *current_operation = thread->operations;
 
         while (current_operation != NULL) {
-            do_operation(&current_operation, thread->thread_number);  // TODO: Remove thread_number
+            do_operation(&current_operation);
             next_operation(&current_operation);
             pthread_yield();
         }
     }
-    return NULL;
+    // return NULL;
 }
 
 
@@ -277,8 +256,6 @@ ProgramInfo parseFile(char *filename) {
     for (unsigned int i = 0; i < program.numThreads; i++) {
 
         Thread *thread = &program.threads[i];
-
-        thread->thread_number = i;  // TODO: Remove thread_number
 
         // Get line declaring thread
         fgets(line, sizeof(line), file);
@@ -374,7 +351,7 @@ int main(int argc, char* argv[]) {
     // Initialize Mutex
     pthread_mutexattr_init(&mta);
     pthread_mutexattr_setprotocol(&mta, PTHREAD_PRIO_INHERIT);
-    for (int i = 0; i < sizeof(mutexes)/sizeof(mutexes[0]); i++) {
+    for (int i = 0; i < 10; i++) {
         pthread_mutex_init(&mutexes[i], &mta);
     }
 
@@ -392,28 +369,15 @@ int main(int argc, char* argv[]) {
 
         // Set thread priority, scheduling policy (FIFO), and affinity (1 CPU)
         param.sched_priority = program.threads[i].priority;
-        pthread_attr_setinheritsched(&attr, PTHREAD_EXPLICIT_SCHED);
         pthread_attr_setschedparam(&attr, &param);
-        pthread_attr_setschedpolicy(&attr, SCHED_RR);
-        // pthread_attr_setschedpolicy(&attr, SCHED_FIFO);
+        pthread_attr_setschedpolicy(&attr, SCHED_FIFO);
         pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &cpuset);
 
         // Start thread using attr struct
-        int err;
         switch (program.threads[i].thread_type) {
-            case  PERIODIC:
-                err = pthread_create(&threads[i], &attr,  periodic, &program.threads[i]);
-                break;
-            case APERIODIC:
-                err = pthread_create(&threads[i], &attr, aperiodic, &program.threads[i]);
-                break;
+            case  PERIODIC: pthread_create(&threads[i], &attr,  periodic, &program.threads[i]); break;
+            case APERIODIC: pthread_create(&threads[i], &attr, aperiodic, &program.threads[i]); break;
         }
-        fprintf(stderr, "error code %s\n",
-            (err == EAGAIN ? "EAGAIN"
-            : (err == EINVAL ? "EINVAL"
-            : (err == EPERM ? "EPERM"
-            : (err == 0 ? "GOOD"
-            : "unknown")))));
     }
 
     pthread_barrier_wait(&thread_sync);
@@ -424,13 +388,8 @@ int main(int argc, char* argv[]) {
     // Terminate all threads (cleanly)
     for (int i = 0; i < program.numThreads; i++) {
         int err = pthread_cancel(threads[i]);
-        fprintf(stderr, "Thread %i cancellation requested: %i\n", i, err);
-    }
-
-    // Wait for all threads to exit. Outside of above loop to deserialize cancellation
-    for (int i = 0; i < program.numThreads; i++) {
-        int err = pthread_join(threads[i], NULL);
-        fprintf(stderr, "Thread %i closed: %i\n", i, err);
+        fprintf(stderr, "Thread %i canceled: %i\n", i, err);
+        fprintf(stderr, "Thread %i closed: %i\n", i, pthread_join(threads[i], NULL));
     }
 
     return 0;

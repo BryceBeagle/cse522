@@ -128,17 +128,26 @@ void do_operation(Operation **operation, unsigned int thread_number) {  // TODO:
         case LOCK      :
             fprintf(stdout, "Thread %u :: LOCK      %ld\n", thread_number, (*operation)->value);
             pthread_mutex_lock(&mutexes[(*operation)->value]);
+<<<<<<< HEAD
             // fprintf(stdout, "%lu :: LOCK %ld\n", get_tid(), (*operation)->value);
+=======
+>>>>>>> 554933b314c5c3d28c63eeab45abe839940d8e5c
             break;
         case UNLOCK    :
             fprintf(stdout, "Thread %u :: UNLOCK    %ld\n", thread_number, (*operation)->value);
             pthread_mutex_unlock(&mutexes[(*operation)->value]);
+<<<<<<< HEAD
             // fprintf(stdout, "%lu :: UNLOCK %ld\n", get_tid(), (*operation)->value);
+=======
+>>>>>>> 554933b314c5c3d28c63eeab45abe839940d8e5c
             break;
         case BUSY_LOOP :
             fprintf(stdout, "Thread %u :: BUSY LOOP %ld\n", thread_number, (*operation)->value);
             busyLoop((*operation)->value);
+<<<<<<< HEAD
             // fprintf(stdout, "%lu :: LOOP %ld\n", get_tid(), (*operation)->value);
+=======
+>>>>>>> 554933b314c5c3d28c63eeab45abe839940d8e5c
             break;
 
     }
