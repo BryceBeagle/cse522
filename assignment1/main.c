@@ -128,17 +128,17 @@ void do_operation(Operation **operation, unsigned int thread_number) {  // TODO:
         case LOCK      :
             // fprintf(stdout, "Thread %u :: LOCK      %ld\n", thread_number, (*operation)->value);
             pthread_mutex_lock(&mutexes[(*operation)->value]);
-            fprintf(stdout, "%lu :: LOCK %ld\n", get_tid(), (*operation)->value);
+            // fprintf(stdout, "%lu :: LOCK %ld\n", get_tid(), (*operation)->value);
             break;
         case UNLOCK    :
             // fprintf(stdout, "Thread %u :: UNLOCK    %ld\n", thread_number, (*operation)->value);
             pthread_mutex_unlock(&mutexes[(*operation)->value]);
-            fprintf(stdout, "%lu :: UNLOCK %ld\n", get_tid(), (*operation)->value);
+            // fprintf(stdout, "%lu :: UNLOCK %ld\n", get_tid(), (*operation)->value);
             break;
         case BUSY_LOOP :
             // fprintf(stdout, "Thread %u :: BUSY LOOP %ld\n", thread_number, (*operation)->value);
             busyLoop((*operation)->value);
-            fprintf(stdout, "%lu :: LOOP %ld\n", get_tid(), (*operation)->value);
+            // fprintf(stdout, "%lu :: LOOP %ld\n", get_tid(), (*operation)->value);
             break;
 
     }
@@ -370,11 +370,11 @@ int main(int argc, char* argv[]) {
 
     cpu_set_t cpuset;
     CPU_ZERO(&cpuset);
-    CPU_SET(1, &cpuset);
+    CPU_SET(0, &cpuset);
 
     // Initialize Mutex
     pthread_mutexattr_init(&mta);
-    pthread_mutexattr_setprotocol(&mta, PTHREAD_PRIO_INHERIT);
+    // pthread_mutexattr_setprotocol(&mta, PTHREAD_PRIO_INHERIT);
     for (int i = 0; i < sizeof(mutexes)/sizeof(mutexes[0]); i++) {
         pthread_mutex_init(&mutexes[i], &mta);
     }
@@ -404,14 +404,13 @@ int main(int argc, char* argv[]) {
             :  NULL));
 
         // Start thread using attr struct
-        // int err =
-        pthread_create(&threads[i], &attr, thread_function, &program.threads[i]);
-        // fprintf(stderr, "error code %s\n",
-        //     (err == EAGAIN ? "EAGAIN"
-        //     : (err == EINVAL ? "EINVAL"
-        //     : (err == EPERM ? "EPERM"
-        //     : (err == 0 ? "GOOD"
-        //     : "unknown")))));
+        int err = pthread_create(&threads[i], &attr, thread_function, &program.threads[i]);
+        fprintf(stderr, "error code %s\n",
+            (err == EAGAIN ? "EAGAIN"
+            : (err == EINVAL ? "EINVAL"
+            : (err == EPERM ? "EPERM"
+            : (err == 0 ? "GOOD"
+            : "unknown")))));
     }
 
     pthread_barrier_wait(&thread_sync);
