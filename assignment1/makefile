@@ -7,8 +7,12 @@ CCLOCAL = gcc
 ARCH = x86
 CROSS_COMPILE = i586-poky-linux-
 SROOT=$(SDK_HOME)/i586-poky-linux/
-CFLAGS=-Wall -lpthread -std=c99
 
+ifdef PI
+	CFLAGS=-Wall -lpthread -std=c99 -DPI
+else
+	CFLAGS=-Wall -lpthread -std=c99
+endif
 
 galileo: main.c
 	$(CC) main.c -o main.exe --sysroot=$(SROOT) $(CFLAGS)

@@ -68,6 +68,8 @@ void *aperiodic(void *ptr);
 ProgramInfo parseFile(char *filename);
 void *mouse_reader(void *filename);
 long int get_tid();
+void print_thread_info(char *descriptor);
+void print_pthread_create_info(int err);
 
 ////////////////////////////////////////////////////////////////////////////////
 // THREADS
@@ -76,8 +78,33 @@ long int get_tid() {
     return syscall(SYS_gettid);
 }
 
+void print_pthread_create_info(int err) {
+    fprintf(stderr, "pthread_create error code %s\n",
+        (err == EAGAIN ? "EAGAIN"
+        : (err == EINVAL ? "EINVAL"
+        : (err == EPERM ? "EPERM"
+        : (err == 0 ? "GOOD"
+        : "unknown")))));
+}
+
+void print_thread_info(char *descriptor) {
+    int my_policy;
+    struct sched_param my_param;
+
+    pthread_getschedparam (pthread_self(), &my_policy, &my_param);
+    fprintf (stderr, "# %s %ld :: thread_routine running at %s/%d\n",
+        descriptor,
+        get_tid(),
+        (my_policy == SCHED_FIFO ? "FIFO"
+        : (my_policy == SCHED_RR ? "RR"
+        : (my_policy == SCHED_OTHER ? "OTHER"
+        : "unknown"))),
+        my_param.sched_priority);
+}
+
 void *mouse_reader(void *filename) {
-    fprintf(stderr, "mouse_reader :: %ld\n", get_tid());
+
+    print_thread_info("mouse_reader");
 
     int fd;
     struct input_event ie;
@@ -126,19 +153,16 @@ void do_operation(Operation **operation, unsigned int thread_number) {  // TODO:
 
     switch((*operation)->operation) {
         case LOCK      :
-            // fprintf(stdout, "Thread %u :: LOCK      %ld\n", thread_number, (*operation)->value);
             pthread_mutex_lock(&mutexes[(*operation)->value]);
-            // fprintf(stdout, "%lu :: LOCK %ld\n", get_tid(), (*operation)->value);
+            fprintf(stdout, "%lu :: LOCK %ld\n", get_tid(), (*operation)->value);
             break;
         case UNLOCK    :
-            // fprintf(stdout, "Thread %u :: UNLOCK    %ld\n", thread_number, (*operation)->value);
             pthread_mutex_unlock(&mutexes[(*operation)->value]);
-            // fprintf(stdout, "%lu :: UNLOCK %ld\n", get_tid(), (*operation)->value);
+            fprintf(stdout, "%lu :: UNLOCK %ld\n", get_tid(), (*operation)->value);
             break;
         case BUSY_LOOP :
-            // fprintf(stdout, "Thread %u :: BUSY LOOP %ld\n", thread_number, (*operation)->value);
             busyLoop((*operation)->value);
-            // fprintf(stdout, "%lu :: LOOP %ld\n", get_tid(), (*operation)->value);
+            fprintf(stdout, "%lu :: LOOP %ld\n", get_tid(), (*operation)->value);
             break;
 
     }
@@ -183,19 +207,11 @@ int msleep(struct timespec start, long msec) {
 }
 
 void *periodic(void *ptr) {
+
     Thread *thread = (Thread *)ptr;
     struct timespec start_time;
-    int my_policy;
-    struct sched_param my_param;
 
-    pthread_getschedparam (pthread_self(), &my_policy, &my_param);
-    fprintf (stderr, "# periodic %ld :: thread_routine running at %s/%d\n",
-        get_tid(),
-        (my_policy == SCHED_FIFO ? "FIFO"
-        : (my_policy == SCHED_RR ? "RR"
-        : (my_policy == SCHED_OTHER ? "OTHER"
-        : "unknown"))),
-        my_param.sched_priority);
+    print_thread_info("periodic");
 
     // Wait for activation
     pthread_barrier_wait(&thread_sync);  // Sync all threads
@@ -223,9 +239,10 @@ void *periodic(void *ptr) {
 }
 
 void *aperiodic(void *ptr) {
-    fprintf(stderr, "aperiodic :: %ld\n", get_tid());
 
     Thread *thread = (Thread *)ptr;
+
+    print_thread_info("aperiodic");
 
     // Wait for activation
     pthread_barrier_wait(&thread_sync);
@@ -245,7 +262,6 @@ void *aperiodic(void *ptr) {
         while (current_operation != NULL) {
             do_operation(&current_operation, thread->thread_number);  // TODO: Remove thread_number
             next_operation(&current_operation);
-            pthread_yield();
         }
     }
     return NULL;
@@ -373,14 +389,33 @@ int main(int argc, char* argv[]) {
     CPU_SET(0, &cpuset);
 
     // Initialize Mutex
-    pthread_mutexattr_init(&mta);
-    // pthread_mutexattr_setprotocol(&mta, PTHREAD_PRIO_INHERIT);
-    for (int i = 0; i < sizeof(mutexes)/sizeof(mutexes[0]); i++) {
-        pthread_mutex_init(&mutexes[i], &mta);
+    {
+        pthread_mutexattr_init(&mta);
+        #ifdef PI
+            pthread_mutexattr_setprotocol(&mta, PTHREAD_PRIO_INHERIT);
+            printf("PI ENABLED\n");
+        #else
+            printf("PI -NOT- ENABLED\n");
+        #endif
+        for (int i = 0; i < sizeof(mutexes)/sizeof(mutexes[0]); i++) {
+            pthread_mutex_init(&mutexes[i], &mta);
+        }
     }
 
-    pthread_create(&mouse_watcher, NULL, mouse_reader, "/dev/input/mice");
-    pthread_setaffinity_np(mouse_watcher, sizeof(cpu_set_t), &cpuset);
+    //Start Mouse Watcher
+    {
+        struct sched_param param;
+        pthread_attr_t attr;
+        pthread_attr_init(&attr);
+
+        param.sched_priority = sched_get_priority_max(SCHED_RR);
+        pthread_attr_setinheritsched(&attr, PTHREAD_EXPLICIT_SCHED);
+        pthread_attr_setschedpolicy(&attr, SCHED_RR);
+        pthread_attr_setschedparam(&attr, &param);
+
+        pthread_create(&mouse_watcher, &attr, mouse_reader, "/dev/input/mice");
+        pthread_setaffinity_np(mouse_watcher, sizeof(cpu_set_t), &cpuset);
+    }
 
     for (int i=0; i < program.numThreads; i++) {
 
@@ -405,12 +440,10 @@ int main(int argc, char* argv[]) {
 
         // Start thread using attr struct
         int err = pthread_create(&threads[i], &attr, thread_function, &program.threads[i]);
-        fprintf(stderr, "error code %s\n",
-            (err == EAGAIN ? "EAGAIN"
-            : (err == EINVAL ? "EINVAL"
-            : (err == EPERM ? "EPERM"
-            : (err == 0 ? "GOOD"
-            : "unknown")))));
+        if(err){
+            print_pthread_create_info(err);
+            exit(-1);
+        }
     }
 
     pthread_barrier_wait(&thread_sync);
