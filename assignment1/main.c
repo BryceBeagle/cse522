@@ -17,8 +17,8 @@ pthread_barrier_t thread_sync;
 pthread_mutexattr_t mta;
 pthread_mutex_t mutexes[10];
 
-pthread_mutex_t event_mut = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t event_cond[2] = {PTHREAD_COND_INITIALIZER, PTHREAD_COND_INITIALIZER};
+pthread_mutex_t event_mut;
+pthread_cond_t event_cond[2];
 
 ////////////////////////////////////////////////////////////////////////////////
 // DATA STRUCTURES
@@ -246,10 +246,11 @@ void *aperiodic(void *ptr) {
     while(1) {
 
         // Wait for next event
+        pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
         pthread_mutex_lock(&event_mut);
         pthread_cond_wait(&event_cond[thread->event], &event_mut);
         pthread_mutex_unlock(&event_mut);
-        // fprintf(stderr, "Click detected\n");
+        pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
 
         pthread_testcancel();
 
@@ -386,6 +387,8 @@ int main(int argc, char* argv[]) {
 
     // Initialize Mutex
     {
+        pthread_cond_init(&event_cond[LEFT], NULL);
+        pthread_cond_init(&event_cond[RIGHT], NULL);
         pthread_mutexattr_init(&mta);
         #ifdef PI
             pthread_mutexattr_setprotocol(&mta, PTHREAD_PRIO_INHERIT);
@@ -393,6 +396,7 @@ int main(int argc, char* argv[]) {
         #else
             printf("PI -NOT- ENABLED\n");
         #endif
+        pthread_mutex_init(&event_mut, &mta);
         for (int i = 0; i < sizeof(mutexes)/sizeof(mutexes[0]); i++) {
             pthread_mutex_init(&mutexes[i], &mta);
         }
@@ -448,18 +452,19 @@ int main(int argc, char* argv[]) {
     usleep((unsigned int) program.duration * 1000);
 
     // Terminate all threads (cleanly)
+    pthread_cancel(mouse_watcher);
     for (int i = 0; i < program.numThreads; i++) {
         int err = pthread_cancel(threads[i]);
+        pthread_mutex_unlock(&event_mut);
         fprintf(stderr, "Thread %i cancellation requested: %i\n", i, err);
     }
 
+    pthread_cond_broadcast(&event_cond[LEFT]);
+    pthread_cond_broadcast(&event_cond[RIGHT]);
+
     // Wait for all threads to exit. Outside of above loop to deserialize cancellation
-    for (int i = 0; i < sizeof(mutexes)/sizeof(mutexes[0]); i++) {
-        pthread_mutex_unlock(&mutexes[i]);
-    }
     for (int i = 0; i < program.numThreads; i++) {
         int err = pthread_join(threads[i], NULL);
-        pthread_mutex_unlock(&event_mut);
         fprintf(stderr, "Thread %i closed: %i\n", i, err);
     }
 
