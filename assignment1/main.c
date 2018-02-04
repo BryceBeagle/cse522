@@ -17,8 +17,8 @@ pthread_barrier_t thread_sync;
 pthread_mutexattr_t mta;
 pthread_mutex_t mutexes[10];
 
-pthread_mutex_t event_mut = PTHREAD_ERRORCHECK_MUTEX_INITIALIZER_NP;
-pthread_cond_t event_cond[2] = {PTHREAD_COND_INITIALIZER};
+pthread_mutex_t event_mut = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t event_cond[2] = {PTHREAD_COND_INITIALIZER, PTHREAD_COND_INITIALIZER};
 
 ////////////////////////////////////////////////////////////////////////////////
 // DATA STRUCTURES
@@ -122,15 +122,11 @@ void *mouse_reader(void *filename) {
 
         if(mouse_left){
             fprintf(stderr, "LEFT\n");
-            pthread_mutex_lock(&event_mut);
             pthread_cond_broadcast(&event_cond[LEFT]);
-            pthread_mutex_unlock(&event_mut);
         }
         if(mouse_right){
             fprintf(stderr, "RIGHT\n");
-            pthread_mutex_lock(&event_mut);
             pthread_cond_broadcast(&event_cond[RIGHT]);
-            pthread_mutex_unlock(&event_mut);
         }
     }
     return NULL;
@@ -458,8 +454,12 @@ int main(int argc, char* argv[]) {
     }
 
     // Wait for all threads to exit. Outside of above loop to deserialize cancellation
+    for (int i = 0; i < sizeof(mutexes)/sizeof(mutexes[0]); i++) {
+        pthread_mutex_unlock(&mutexes[i]);
+    }
     for (int i = 0; i < program.numThreads; i++) {
         int err = pthread_join(threads[i], NULL);
+        pthread_mutex_unlock(&event_mut);
         fprintf(stderr, "Thread %i closed: %i\n", i, err);
     }
 
