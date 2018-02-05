@@ -109,10 +109,18 @@ void *mouse_reader(void *filename) {
     int fd;
     struct input_event ie;
     unsigned char mouse_left, mouse_right;
+    unsigned char previous_mouse_left, previous_mouse_right;
 
     if((fd = open((char *)filename, O_RDONLY)) == -1) {
         fprintf(stderr, "Device open ERROR\n");
         exit(-1);
+    }
+
+    {
+        read(fd, &ie, sizeof(struct input_event));
+        unsigned char *ptr = (unsigned char*)&ie;
+        previous_mouse_left  = ptr[0] & (unsigned char)0x1;
+        previous_mouse_right = ptr[0] & (unsigned char)0x2;
     }
 
     while(read(fd, &ie, sizeof(struct input_event))){
@@ -120,14 +128,17 @@ void *mouse_reader(void *filename) {
         mouse_left  = ptr[0] & (unsigned char)0x1;
         mouse_right = ptr[0] & (unsigned char)0x2;
 
-        if(mouse_left){
+        if(mouse_left < previous_mouse_left){ // transition from high to low
             fprintf(stderr, "LEFT\n");
             pthread_cond_broadcast(&event_cond[LEFT]);
         }
-        if(mouse_right){
+        if(mouse_right < previous_mouse_right){ // transition from high to low
             fprintf(stderr, "RIGHT\n");
             pthread_cond_broadcast(&event_cond[RIGHT]);
         }
+
+        previous_mouse_left  = mouse_left;
+        previous_mouse_right = mouse_right;
     }
     return NULL;
 }
@@ -273,7 +284,7 @@ ProgramInfo parseFile(char *filename) {
     // TODO: Too long. segment into multiple functions
 
     ProgramInfo program;
-    FILE* file = fopen(filename, "r");  // TODO: Default?
+    FILE* file = (filename == NULL ? stdin : fopen(filename, "r"));
 
     char line[256];  // Should be long enough
     char *word_end;
