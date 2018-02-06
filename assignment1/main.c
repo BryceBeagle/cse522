@@ -438,18 +438,11 @@ int main(int argc, char* argv[]) {
 
     usleep((unsigned int) program.duration * 1000);
 
-    // Terminate all threads (cleanly)
+    // Cancel all threads (cleanly)
     pthread_cancel(mouse_watcher);
     for (int i = 0; i < program.numThreads; i++) {
         int err = pthread_cancel(threads[i]);
         fprintf(stderr, "Thread %i cancellation requested: %i\n", i, err);
-    }
-
-    // Wait for all threads to exit. Outside of above loop to deserialize cancellation
-    for (int i = 0; i < program.numThreads; i++) {
-        pthread_mutex_unlock(&event_mut);
-        int err = pthread_join(threads[i], NULL);
-        fprintf(stderr, "Thread %i closed: %i\n", i, err);
     }
 
     for (int i = 0; i < sizeof(mutexes)/sizeof(mutexes[0]); i++) {
