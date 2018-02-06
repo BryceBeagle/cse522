@@ -257,11 +257,9 @@ void *aperiodic(void *ptr) {
     while(1) {
 
         // Wait for next event
-        pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
         pthread_mutex_lock(&event_mut);
         pthread_cond_wait(&event_cond[thread->event], &event_mut);
         pthread_mutex_unlock(&event_mut);
-        pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
 
         pthread_testcancel();
 
@@ -466,15 +464,12 @@ int main(int argc, char* argv[]) {
     pthread_cancel(mouse_watcher);
     for (int i = 0; i < program.numThreads; i++) {
         int err = pthread_cancel(threads[i]);
-        pthread_mutex_unlock(&event_mut);
         fprintf(stderr, "Thread %i cancellation requested: %i\n", i, err);
     }
 
-    pthread_cond_broadcast(&event_cond[LEFT]);
-    pthread_cond_broadcast(&event_cond[RIGHT]);
-
     // Wait for all threads to exit. Outside of above loop to deserialize cancellation
     for (int i = 0; i < program.numThreads; i++) {
+        pthread_mutex_unlock(&event_mut);
         int err = pthread_join(threads[i], NULL);
         fprintf(stderr, "Thread %i closed: %i\n", i, err);
     }
