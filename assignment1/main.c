@@ -479,5 +479,9 @@ int main(int argc, char* argv[]) {
         fprintf(stderr, "Thread %i closed: %i\n", i, err);
     }
 
+    for (int i = 0; i < sizeof(mutexes)/sizeof(mutexes[0]); i++) {
+        pthread_mutex_unlock(&mutexes[i]);
+    }
+
     return 0;
 }
