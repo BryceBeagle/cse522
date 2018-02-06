@@ -42,8 +42,6 @@ typedef struct Thread {
     unsigned long period;    // long was chosen arbitrarily
     unsigned long event;     // long was chosen arbitrarily
 
-    unsigned int  thread_number;  // TODO: Remove thread_number
-
     Operation    *operations;
 
 } Thread;
@@ -57,17 +55,21 @@ typedef struct {
 } ProgramInfo;
 
 void busyLoop(long iterations);
-void next_operation(Operation **ptr);
-void do_operation(Operation **operation, unsigned int thread_number);  // TODO: Remove thread_number
 
-int overrun(struct timespec *start_time, struct timespec *current_time, int duration);
+void next_operation(Operation **ptr);
+void do_operation(Operation **operation);
+
 int msleep(struct timespec start, long msec);
 
 void *periodic(void *ptr);
 void *aperiodic(void *ptr);
+
 ProgramInfo parseFile(char *filename);
+
 void *mouse_reader(void *filename);
+
 long int get_tid();
+
 void print_thread_info(char *descriptor);
 void print_pthread_create_info(int err);
 
@@ -153,7 +155,7 @@ void next_operation(Operation **ptr) {
     if(ptr != NULL && *ptr != NULL) *ptr = (*ptr)->nextOp;
 }
 
-void do_operation(Operation **operation, unsigned int thread_number) {  // TODO: Remove thread_number
+void do_operation(Operation **operation) {
 
     // Disable thread cancellation
     pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
@@ -176,28 +178,6 @@ void do_operation(Operation **operation, unsigned int thread_number) {  // TODO:
 
     // Re-enable thread cancellation
     pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
-}
-
-// start_time + duration >? current_time
-int overrun(struct timespec *start_time, struct timespec *current_time, int duration) {
-
-    struct timespec end_time = {
-        start_time->tv_sec + (duration / 1000),
-        start_time->tv_sec + ((duration % 1000) * 1000000)
-    };
-
-    if (end_time.tv_nsec / 1000000000) {
-        end_time.tv_sec += 1;
-        end_time.tv_nsec -= 1000000000;
-    }
-
-    if (current_time->tv_sec == end_time.tv_sec) {
-        return current_time->tv_nsec > end_time.tv_nsec;
-    }
-    else {
-        return current_time->tv_sec > end_time.tv_sec;
-    }
-
 }
 
 int msleep(struct timespec start, long msec) {
@@ -231,7 +211,7 @@ void *periodic(void *ptr) {
         Operation *current_operation = thread->operations;
 
         while (current_operation != NULL) {
-            do_operation(&current_operation, thread->thread_number);
+            do_operation(&current_operation);
             next_operation(&current_operation); //advance
         }
 
@@ -266,7 +246,7 @@ void *aperiodic(void *ptr) {
         Operation *current_operation = thread->operations;
 
         while (current_operation != NULL) {
-            do_operation(&current_operation, thread->thread_number);  // TODO: Remove thread_number
+            do_operation(&current_operation);
             next_operation(&current_operation);
         }
     }
@@ -300,8 +280,6 @@ ProgramInfo parseFile(char *filename) {
     for (unsigned int i = 0; i < program.numThreads; i++) {
 
         Thread *thread = &program.threads[i];
-
-        thread->thread_number = i;  // TODO: Remove thread_number
 
         // Get line declaring thread
         fgets(line, sizeof(line), file);
