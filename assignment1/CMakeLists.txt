@@ -1,11 +1,16 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.9.6)
 project(assignment1 C)
 
 set(CMAKE_C_STANDARD 11)
 
-add_executable(assignment1 main.c)
+#add_custom_target(local)
+#add_custom_target(galileo)
 
-target_link_libraries(assignment1 m)
-target_link_libraries(assignment1 pthread)
+add_executable(main main.c)
 
-target_compile_options(assignment1 PRIVATE "-Wall")
+target_link_libraries(main m pthread)
+
+target_compile_options(main PRIVATE "-Wall")
+
+#target_compile_options(local PRIVATE "-Wall")
+#target_compile_options(galileo PRIVATE "-Wall")
