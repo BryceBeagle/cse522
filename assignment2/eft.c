@@ -22,7 +22,7 @@ analysis_results edf_analysis (int size, task_type *data)
 		results.utilization += data[i].wcet / data[i].period;
 	}
 
-	if(results.utilization >= 1.0) results.is_schedulable = 1;
+	if(results.utilization <= 1.0) results.is_schedulable = 1;
 
 	return results;
 }
