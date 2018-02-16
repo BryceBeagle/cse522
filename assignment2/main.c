@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 
 #include "main.h"
 
@@ -43,19 +42,15 @@ ProgramInfo parseFile(char *filename) {
             Task *task = &task_set->tasks[j];
 
             char *state;
-            char *token;
 
             // WCET
-            token = strtok_r(line, " ", &state);
-            task->wcet = strtod(token, NULL);
+            task->wcet = strtod(line, &state);
 
             // Deadline
-            token = strtok_r(NULL, " ", &state);
-            task->deadline = strtod(token, NULL);
+            task->deadline = strtod(state, &state);
 
             // Period
-            token = strtok_r(NULL, " ", &state);
-            task->period = strtod(token, NULL);
+            task->period = strtod(state, &state);
 
         }
 
