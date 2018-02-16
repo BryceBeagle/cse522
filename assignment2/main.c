@@ -16,11 +16,10 @@ ProgramInfo parseFile(char *filename) {
     FILE *file = (filename == NULL ? stdin : fopen(filename, "r"));
 
     char line[256];  // Should be long enough
-    char *word_end;
 
     // First line designating number of task sets
     fgets(line, sizeof(line), file);
-    program.num_task_sets = (int) strtoul(line, &word_end, 10);
+    program.num_task_sets = (int) strtoul(line, NULL, 10);
     program.task_sets = malloc(program.num_task_sets * sizeof(TaskSet*));
 
     // Task set declaration
