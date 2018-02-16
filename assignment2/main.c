@@ -4,9 +4,9 @@
 
 #include "main.h"
 
-////////////////////////////////////////////////////////////////////////////////
-
-// MAIN PROGRAM CODE
+int main(int argc, char *argv[]) {
+    ProgramInfo program = parseFile(argv[1]);
+}
 
 ProgramInfo parseFile(char *filename) {
 
@@ -63,8 +63,4 @@ ProgramInfo parseFile(char *filename) {
     }
 
     return program;
-}
-
-int main(int argc, char* argv[]) {
-    ProgramInfo program = parseFile(argv[1]);
 }

@@ -1,5 +1,4 @@
 #define _GNU_SOURCE
-#include <pthread.h>
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -32,3 +31,4 @@ typedef struct ProgramInfo {
 // FORWARD DECLARATIONS
 
 ProgramInfo parseFile(char *filename);
+int main(int argc, char *argv[]);
