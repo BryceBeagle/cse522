@@ -1,7 +1,19 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "main.h"
+#include "task_types.h"
+#include "edf.h"
+
+/*
+ *  FORWARD DECLARATIONS
+ */
+
+ProgramInfo parseFile(char *filename);
+int main(int argc, char *argv[]);
+
+/*
+ *  Function Bodies
+ */
 
 int main(int argc, char *argv[]) {
     ProgramInfo program = parseFile(argv[1]);
