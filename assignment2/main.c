@@ -2,7 +2,8 @@
 #include <stdlib.h>
 
 #include "task_types.h"
-#include "edf.h"
+#include "edf/edf.h"
+#include "rm/rm.h"
 
 /*
  *  FORWARD DECLARATIONS
@@ -17,6 +18,16 @@ int main(int argc, char *argv[]);
 
 int main(int argc, char *argv[]) {
     ProgramInfo program = parseFile(argv[1]);
+
+    for (int i = 0; i < program.num_task_sets; i++) {
+
+        TaskSet task_set = program.task_sets[i];
+
+        analysis_results edf_results = edf_analysis(&task_set);
+        analysis_results rm_results = rm_analysis(&task_set);
+
+    }
+
 }
 
 ProgramInfo parseFile(char *filename) {
