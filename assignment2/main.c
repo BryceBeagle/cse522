@@ -40,9 +40,9 @@ ProgramInfo parseFile(char *filename) {
     char line[256];  // Should be long enough
 
     // First line designating number of task sets
-    fgets(line, sizeof(line), file);
+    if(!fgets(line, sizeof(line), file)) exit(-1);
     program.num_task_sets = (int) strtoul(line, NULL, 10);
-    program.task_sets = malloc(program.num_task_sets * sizeof(TaskSet*));
+    program.task_sets = malloc(program.num_task_sets * sizeof(TaskSet));
 
     // Task set declaration
     for (unsigned int i = 0; i < program.num_task_sets; i++) {
@@ -50,7 +50,7 @@ ProgramInfo parseFile(char *filename) {
         TaskSet *task_set = &program.task_sets[i];
 
         // Get line declaring task set
-        fgets(line, sizeof(line), file);
+        if(!fgets(line, sizeof(line), file)) exit(-1);
 
         // Set up task set
         task_set->num_tasks = (unsigned int) strtol(line, NULL, 10);
@@ -60,7 +60,7 @@ ProgramInfo parseFile(char *filename) {
         for (unsigned int j = 0; j < task_set->num_tasks; j++) {
 
             // Get line declaring task
-            fgets(line, sizeof(line), file);
+            if(!fgets(line, sizeof(line), file)) exit(-1);
 
             Task *task = &task_set->tasks[j];
 
@@ -74,7 +74,6 @@ ProgramInfo parseFile(char *filename) {
 
             // Period
             task->period = strtod(state, &state);
-
         }
 
     }
