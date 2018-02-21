@@ -3,6 +3,28 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+unsigned int for_some_index_less_than_or_equal(double *list, int size, double value)
+{
+	unsigned int ret = 0;
+	for(int i = 0; i < size; i++)
+	{
+		ret |= (list[i] <= value);
+	}
+	return ret;
+}
+
+unsigned int smallest_index(double *list, int size)
+{
+	unsigned int index = 0;
+	for(int i = 0; i < size; i++)
+	{
+		if(list[i] < list[index]){
+			index = i;
+		}
+	}
+	return index;
+}
+
 analysis_results edf_analysis (TaskSet *task_set)
 {
 	fprintf(stderr, "EDF\n");
@@ -24,24 +46,56 @@ analysis_results edf_analysis (TaskSet *task_set)
 	}
 
 	if(density > 1.0){
-		//get loading factor
-		for(int i = 0; i < task_set->num_tasks; i++)
+		//get L value
+		double l;
 		{
-			double loading_factor = 0.0;
-			Task *t_reference = &(task_set->tasks[i]);
-			for(int j = 0; j < task_set->num_tasks; j++)
+			l = 0.0;
+			for(int i = 0; i < task_set->num_tasks; i++)
 			{
-				Task *t_iteration = &(task_set->tasks[j]);
-				if(t_iteration->deadline <= t_reference->deadline){
-					loading_factor += t_iteration->wcet;
-				}
+				l += task_set->tasks[i].wcet;
 			}
 
-			if(loading_factor / t_reference->deadline > 1.0){
-				// too high a load
+			double new_l = l;
+			do{
+				l = new_l;
+				new_l = 0.0;
+				for(int i = 0; i < task_set->num_tasks; i++)
+				{
+					Task *t = &(task_set->tasks[i]);
+					new_l += ceil(l / t->period) * t->wcet;
+				}
+			}while(l != new_l);
+		}
+
+		//get loading factor
+		// make array to keep track of time stamps for each task, initialize array to respective task deadlines
+		// make h variable, initialize to zero
+		// while some array value < l
+			// find smallest value in array, indicating nearest deadline
+			// increase h by that deadline's task's wcet
+			// check if utilization > 1.0. if so, return
+			// increase that task's next deadline by it's period
+
+		double time_stamps[task_set->num_tasks];
+		double h;
+
+		for(int i = 0; i < task_set->num_tasks; i++)
+		{
+			time_stamps[i] = task_set->tasks[i].deadline;
+		}
+		h = 0.0;
+
+		while(for_some_index_less_than_or_equal(time_stamps, task_set->num_tasks, l))
+		{
+			unsigned int index = smallest_index(time_stamps, task_set->num_tasks);
+			h += task_set->tasks[index].wcet;
+			// printf("h:%lf\n", h);
+			// printf("t:%lf\n", time_stamps[index]);
+			if(h / time_stamps[index] > 1.0){
 				fputs("Not Schedulable\n", stderr);
 				return results;
 			}
+			time_stamps[index] += task_set->tasks[index].period;
 		}
 	}
 
