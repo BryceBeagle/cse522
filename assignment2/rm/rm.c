@@ -147,7 +147,7 @@ analysis_results rm_analysis(TaskSet *task_set) {
             }
 
             if (w_n1 == w_n) {
-                // Current task is schedulable
+                // Current task is potentially schedulable
                 break;
             }
 
