@@ -5,8 +5,9 @@ project(assignment2 C)
 
 add_subdirectory(edf)
 add_subdirectory(rm)
+add_subdirectory(dm)
 
 add_executable(main main.c task_types.h)
-target_link_libraries(main m edf rm)
+target_link_libraries(main m edf rm dm)
 
 target_compile_options(main PRIVATE "-Wall")

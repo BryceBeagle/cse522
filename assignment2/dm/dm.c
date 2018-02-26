@@ -1,7 +1,7 @@
 #include <math.h>
 #include "../task_types.h"
 
-analysis_results rm_analysis(TaskSet *task_set) {
+analysis_results dm_analysis(TaskSet *task_set) {
 
     /*
      * When the relative deadlines are arbitrary, the DM algorithm performs
@@ -139,7 +139,7 @@ analysis_results rm_analysis(TaskSet *task_set) {
 
                 // Tasks aren't sorted by priority (yet?) so we need to find the
                 // ones with higher priorities (shorter periods) that can preempt
-                if (hp_task.period >= task.period) {
+                if (hp_task.deadline >= task.deadline) {
                     continue;
                 }
 
