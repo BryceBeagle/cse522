@@ -44,7 +44,7 @@ procedure Task_Generator is
 	begin
 		Temp_Array(1) := 0.0;
 		for I in 2 .. N loop
-			Temp_Array(I) := Fixed_Number(Random(Random_Generator));
+			Temp_Array(I) := Fixed_Number(Random(Random_Generator)) * Util;
 		end loop;
 		Temp_Array(N+1) := Util;
 		Fixed_Sort(Temp_Array);
