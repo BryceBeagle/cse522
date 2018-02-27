@@ -23,8 +23,9 @@ int main(int argc, char *argv[]) {
 
         TaskSet task_set = program.task_sets[i];
 
+        printf("%d\n", i);
         analysis_results edf_results = edf_analysis(&task_set);
-        analysis_results rm_results = rm_analysis(&task_set);
+        // analysis_results rm_results = rm_analysis(&task_set);
 
     }
 

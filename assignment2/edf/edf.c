@@ -64,8 +64,9 @@ analysis_results edf_analysis (TaskSet *task_set)
 					Task *t = &(task_set->tasks[i]);
 					new_l += ceil(l / t->period) * t->wcet;
 				}
-			}while(l != new_l);
+			}while(l < (new_l * 1.01) && l > (new_l * 0.99));
 		}
+
 
 		//get loading factor
 		// make array to keep track of time stamps for each task, initialize array to respective task deadlines
@@ -85,13 +86,14 @@ analysis_results edf_analysis (TaskSet *task_set)
 		}
 		h = 0.0;
 
+
 		while(for_some_index_less_than_or_equal(time_stamps, task_set->num_tasks, l))
 		{
 			unsigned int index = smallest_index(time_stamps, task_set->num_tasks);
 			h += task_set->tasks[index].wcet;
 			// printf("h:%lf\n", h);
 			// printf("t:%lf\n", time_stamps[index]);
-			if(h / time_stamps[index] > 1.0){
+			if(h > time_stamps[index]){
 				fputs("Not Schedulable\n", stderr);
 				return results;
 			}
