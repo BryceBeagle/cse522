@@ -22,7 +22,7 @@ procedure Task_Generator is
 		WCET : Fixed_Number := 0.0;
 	end record
 		with Dynamic_Predicate =>
-			Task_Parameters.Deadline <= Task_Parameters.Period and then Task_Parameters.Deadline >= Task_Parameters.WCET;
+			Task_Parameters.Deadline in Task_Parameters.WCET .. Task_Parameters.Period;
 
 	package F_IO is new Ada.Text_IO.Fixed_IO(Fixed_Number);
 	package I_IO is new Ada.Text_IO.Integer_IO(Integer);
