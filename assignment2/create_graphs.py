@@ -22,9 +22,10 @@ for fi in [edf, rm, dm]:
 
     # Get the percent of schedulable task sets at each bin
     percents = []
-    for bin in range(1, bins.size):
+    for bin_ in range(1, bins.size):
+
         # Get all results that are within current bin
-        filtered = results[np.where(indices == bin)]
+        filtered = results[np.where(indices == bin_)]
 
         # Count them (schedulable == 1, so sum works perfectly)
         sched_count = (filtered["sched"]).sum()
