@@ -27,7 +27,7 @@ for fi in [edf, rm, dm]:
         # Get all results that are within current bin
         filtered = results[np.where(indices == bin_)]
 
-        # Count them (schedulable == 1, so sum works perfectly)
+        # Count schedulable task sets (schedulable == 1, so sum works perfectly)
         sched_count = (filtered["sched"]).sum()
 
         # Add to list
