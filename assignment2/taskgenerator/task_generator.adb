@@ -15,7 +15,7 @@ procedure Task_Generator is
 		Deadline_Range : Distribution_Setting;
 	end record;
 
-	type Fixed_Number is delta 0.01 range 0.0 .. 1000.0;
+	type Fixed_Number is delta 0.01 digits 6 range 0.0 .. 1000.0;
 	type Fixed_Number_Array is array (Positive range <>) of Fixed_Number;
 
 	type Task_Parameters is record
@@ -26,7 +26,7 @@ procedure Task_Generator is
 		with Dynamic_Predicate =>
 			Task_Parameters.Deadline in Task_Parameters.WCET .. Task_Parameters.Period;
 
-	package F_IO is new Ada.Text_IO.Fixed_IO(Fixed_Number);
+	package F_IO is new Ada.Text_IO.Decimal_IO(Fixed_Number);
 	package I_IO is new Ada.Text_IO.Integer_IO(Integer);
 
 	procedure Print_Task_Parameters (F : File_Type; T : Task_Parameters) is
