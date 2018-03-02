@@ -17,7 +17,7 @@ for fi in [edf, rm, dm]:
 
     # Create array where each value is the bin at which the original list's
     # entry fits into. Values are floored to fit into bin (ie. 0.19 goes in the
-    # 0.1 bin). This is why the bins are not 0.05, 0.1, 0.15, etc.
+    # 0.1 bin). This is why the bins are not 0.05, 0.15, 0.25, etc.
     indices = np.digitize(results["util"], bins)
 
     # Get the percent of schedulable task sets at each bin
