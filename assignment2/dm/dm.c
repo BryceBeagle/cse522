@@ -19,57 +19,7 @@ analysis_results dm_analysis(TaskSet *task_set) {
      * of a late job is allowed to continue, it may cause some other jobs to be
      * late.
      *
-     * We call the ratio of the execution time e_k of a task T_k to the minimum
-     * of its relative deadline D_k and period p_k the density δ_k of the task.
-     *
-     *     δ_k = e_k / min(D_k, p_k)
-     *
-     * The sum of the densities of all tasks in a system is the density of the
-     * system and is denoted by Δ
-     *
-     * When D_i < p_i for some task T_i, Δ > U. If the density of a system is
-     * larger than 1, the system may not be feasible.
-     *
-     * A system T of independent, preemptable tasks can be feasibly scheduled on
-     * one processor if its density is equal to or less than 1.
-     *
-     * While the RM algorithm is not optimal for tasks with arbitrary periods,
-     * it is optimal in the special case when the periodic tasks in the system
-     * are simply periodic and the deadlines of the tasks are no less than
-     * their respective periods.
-     *
-     * δ_k = e_k / min(D_k, p_k)           <--- only works if d_i = p_i    TODO: Is this correct?
-     * Δ = sum(δ)
-     * if Δ < 1:
-     *     schedulable
-     *
-     *  U_max = N * ( 2^(1/N) -1 )
-     *  U_i = t_i / p_i   -> ratio of burst time to period
-     *
-     *  sum(U_i) < U_max  -> will never miss period if RMA is applied
-     *
-     */
-
-
-    int n = task_set->num_tasks;
-
-    analysis_results ret = {0, 0};
-
-    // Sufficient condition. Utilization test
-    // If true, task is schedulable. If not we need to do time-demand analysis
-    for (int i = 0; i < n; i++) {
-        Task task = task_set->tasks[i];
-        ret.utilization += task.wcet / fmin(task.period, task.deadline);
-    }
-
-    ret.is_schedulable = ret.utilization < n * (pow(2, 1. / n) - 1);
-
-    if (ret.is_schedulable) {
-        // Done
-        return ret;
-    }
-
-    /* Time-demand analysis
+     * Time-demand analysis
      *
      *     Notes taken from these lecture slides:
      *     https://csperkins.org/teaching/2014-2015/adv-os/lecture02.pdf
@@ -122,6 +72,16 @@ analysis_results dm_analysis(TaskSet *task_set) {
      *
      */
 
+    analysis_results ret = {0, 0};
+
+    // Utilization
+    // Doing in separate loop in case the other one returns early
+    for (unsigned int i = 0; i < task_set->num_tasks; i++) {
+        Task task = task_set->tasks[i];
+        ret.utilization += task.wcet / task.period;
+
+    }
+
     for (unsigned int i = 0; i < task_set->num_tasks; i++) {
 
         Task task = task_set->tasks[i];
@@ -131,7 +91,7 @@ analysis_results dm_analysis(TaskSet *task_set) {
         for (;;) {
 
             w_n = w_n1;
-            w_n1 = task.wcet;
+            w_n1 = 0;
 
             for (unsigned int k = 0; k < task_set->num_tasks; k++) {
 
