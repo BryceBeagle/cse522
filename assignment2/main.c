@@ -4,28 +4,39 @@
 #include "task_types.h"
 #include "edf/edf.h"
 #include "rm/rm.h"
+#include "dm/dm.h"
+
+#define RESULTS_FILE_EDF "out/results_edf.txt"
+#define RESULTS_FILE_RM  "out/results_rm.txt"
+#define RESULTS_FILE_DM  "out/results_dm.txt"
 
 /*
  *  FORWARD DECLARATIONS
  */
 
 ProgramInfo parseFile(char *filename);
-int main(int argc, char *argv[]);
+void writeFile(analysis_results results, FILE *file);
 
 /*
  *  Function Bodies
  */
 
 int main(int argc, char *argv[]) {
+
     ProgramInfo program = parseFile(argv[1]);
+    FILE *results_edf = fopen(RESULTS_FILE_EDF, "w+");
+    FILE *results_rm  = fopen(RESULTS_FILE_RM , "w+");
+    FILE *results_dm  = fopen(RESULTS_FILE_DM , "w+");
 
     for (int i = 0; i < program.num_task_sets; i++) {
 
+        fprintf(stderr, "%i", i);
+
         TaskSet task_set = program.task_sets[i];
 
-        printf("%d\n", i);
-        analysis_results edf_results = edf_analysis(&task_set);
-        // analysis_results rm_results = rm_analysis(&task_set);
+        writeFile(edf_analysis(&task_set), results_edf);
+        writeFile( rm_analysis(&task_set), results_rm );
+        writeFile( dm_analysis(&task_set), results_dm );
 
     }
 
@@ -80,4 +91,10 @@ ProgramInfo parseFile(char *filename) {
     }
 
     return program;
+}
+
+void writeFile(analysis_results results, FILE *file) {
+
+    fprintf(file, "%i %f\n", results.is_schedulable, results.utilization);
+
 }
