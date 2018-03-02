@@ -30,7 +30,7 @@ int main(int argc, char *argv[]) {
 
     for (int i = 0; i < program.num_task_sets; i++) {
 
-        fprintf(stderr, "%i", i);
+//        fprintf(stderr, "%i\n", i);
 
         TaskSet task_set = program.task_sets[i];
 

@@ -86,40 +86,41 @@ analysis_results dm_analysis(TaskSet *task_set) {
 
         Task task = task_set->tasks[i];
 
-        double w_n, w_n1 = task.wcet;
+        double a_n, a_n1 = 0;
 
         for (;;) {
 
-            w_n = w_n1;
-            w_n1 = 0;
+            a_n = a_n1;
+            a_n1 = task.wcet;
 
-            for (unsigned int k = 0; k < task_set->num_tasks; k++) {
+            for (unsigned int j = 0; j < task_set->num_tasks; j++) {
 
-                Task hp_task = task_set->tasks[k];
+                Task hp_task = task_set->tasks[j];
 
                 // Tasks aren't sorted by priority (yet?) so we need to find the
                 // ones with higher priorities (shorter periods) that can preempt
-                if (hp_task.deadline >= task.deadline) {
-                    continue;
+                if (hp_task.deadline < task.deadline) {
+                    a_n1 += ceil(a_n / hp_task.period) * hp_task.wcet;
                 }
-
-                w_n1 += ceil(w_n / hp_task.period) * hp_task.wcet;
             }
 
-            if (w_n1 == w_n) {
+            // Fuzzy double equality check to account for fp precision errors
+            if (fabs(a_n1 - a_n) < 0.0001) {
+
                 // Current task is potentially schedulable
                 break;
             }
 
-            if (w_n1 > task.period) {
+
+            if (a_n1 > task.period) {
                 // Still not schedulable
                 return ret;
             }
         }
 
-        // After the for(;;) loop is broken, w_n1 represents worst case response
+        // After the for(;;) loop is broken, a_n1 represents worst case response
         // time after critical instance
-        if (w_n1 > task.deadline) {
+        if (a_n1 > task.deadline) {
             // Still not schedulable
             return ret;
         }

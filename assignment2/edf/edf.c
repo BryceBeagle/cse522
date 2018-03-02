@@ -64,7 +64,7 @@ analysis_results edf_analysis (TaskSet *task_set)
 					Task *t = &(task_set->tasks[i]);
 					new_l += ceil(l / t->period) * t->wcet;
 				}
-			}while(l < (new_l * 1.01) && l > (new_l * 0.99));
+			}while(l > (new_l * 1.01) || l < (new_l * 0.99));
 		}
 
 
