@@ -1,4 +1,5 @@
 #include <math.h>
+#include <stdio.h>
 #include "../task_types.h"
 
 analysis_results dm_analysis(TaskSet *task_set) {
@@ -84,35 +85,38 @@ analysis_results dm_analysis(TaskSet *task_set) {
 
     for (unsigned int i = 0; i < task_set->num_tasks; i++) {
 
-        Task task = task_set->tasks[i];
+        Task *task = &(task_set->tasks[i]);
 
         double a_n, a_n1 = 0;
 
         for (;;) {
 
             a_n = a_n1;
-            a_n1 = task.wcet;
+            a_n1 = task->wcet;
+            int passed_task = 0;
 
             for (unsigned int j = 0; j < task_set->num_tasks; j++) {
 
-                Task hp_task = task_set->tasks[j];
+                Task *hp_task = &(task_set->tasks[j]);
 
                 // Tasks aren't sorted by priority (yet?) so we need to find the
                 // ones with higher priorities (shorter periods) that can preempt
-                if (hp_task.deadline < task.deadline) {
-                    a_n1 += ceil(a_n / hp_task.period) * hp_task.wcet;
+                if (task == hp_task) {
+                    passed_task++;
+                }
+
+                if ((hp_task->deadline < task->deadline) || (hp_task->deadline == task->deadline && !passed_task)) {
+                    a_n1 += ceil(a_n / hp_task->period) * hp_task->wcet;
                 }
             }
 
             // Fuzzy double equality check to account for fp precision errors
             if (fabs(a_n1 - a_n) < 0.0001) {
-
                 // Current task is potentially schedulable
                 break;
             }
 
-
-            if (a_n1 > task.period) {
+            if (a_n1 > task->period) {
                 // Still not schedulable
                 return ret;
             }
@@ -120,7 +124,7 @@ analysis_results dm_analysis(TaskSet *task_set) {
 
         // After the for(;;) loop is broken, a_n1 represents worst case response
         // time after critical instance
-        if (a_n1 > task.deadline) {
+        if (a_n1 > task->deadline) {
             // Still not schedulable
             return ret;
         }

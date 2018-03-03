@@ -27,7 +27,7 @@ unsigned int smallest_index(double *list, int size)
 
 analysis_results edf_analysis (TaskSet *task_set)
 {
-	fprintf(stderr, "EDF\n");
+	// fprintf(stderr, "EDF\n");
 	analysis_results results = {0, 0.0};
 	double density = 0.0;
 
@@ -94,14 +94,14 @@ analysis_results edf_analysis (TaskSet *task_set)
 			// printf("h:%lf\n", h);
 			// printf("t:%lf\n", time_stamps[index]);
 			if(h > time_stamps[index]){
-				fputs("Not Schedulable\n", stderr);
+				// fputs("Not Schedulable\n", stderr);
 				return results;
 			}
 			time_stamps[index] += task_set->tasks[index].period;
 		}
 	}
 
-	fputs("Schedulable\n", stderr);
+	// fputs("Schedulable\n", stderr);
 	results.is_schedulable = 1;
 	return results;
 }
