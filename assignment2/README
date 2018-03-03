@@ -1,0 +1,25 @@
+Schedulability Analysis: Assignment 2
+
+To compile the program run
+	'make'
+
+To remove the program run
+	'make clean'
+
+The run the program
+	'./schedule_feasibility input.txt'
+
+	where input.txt is an input file, following the parameters given in the assignment
+
+	The program will output the results to the "out/" directory, where algorithm specific files can be found. The files use the format.
+
+		is_schedulable utilization
+		is_schedulable utilization
+		is_schedulable utilization
+		...
+
+	where is_schedulable is an integer 0 or 1 and utilization is a decimal value.
+
+	The result files are overwritten after every run of the program.
+
+See Schedulability Analysis Algorithm compassion graphs, using data matching parameters set in the assignment.
