@@ -1,0 +1,2 @@
+Put this file in the $ZEPHYR_BASE/samples/hello_world/src and then follow the instruction to build it here
+http://docs.zephyrproject.org/1.10.0/getting_started/getting_started.html
