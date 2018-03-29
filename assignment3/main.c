@@ -4,16 +4,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <string.h>
 #include <zephyr.h>
-#include <asm_inline_gcc.h>
+#include <misc/printk.h>
+#include <console.h>
 #include <gpio.h>
 #include <pwm.h>
 #include <pinmux.h>
-#include <pinmux_galileo.h>
 #include <board.h>
-#include <misc/printk.h>
-#include "../drivers/pwm/pwm_pca9685.h"
-#include <limits.h>
 
 #define tsc_read() (_tsc_read())
 #define BUFFER_SIZE 500
@@ -48,8 +46,8 @@ void sig_got(struct device *gpiob, struct gpio_callback *cb, u32_t pins);
 //test 2 variables
 K_SEM_DEFINE(threadA_sem, 1, 1);	/* starts off "available" */
 K_SEM_DEFINE(threadB_sem, 0, 1);	/* starts off "not available" */
-K_SEM_DEFINE(int_sem, 0, 500);	/* starts off "available" */
-K_SEM_DEFINE(done_mut, 1, 1);
+K_SEM_DEFINE(int_sem, 0, 501);	/* starts off "available" */
+K_SEM_DEFINE(done_mut, 0, 1);
 static struct gpio_callback gpio_cb;
 static struct k_thread threadA_data;
 static struct k_thread threadB_data;
@@ -131,7 +129,7 @@ void sig_got(struct device *gpiob, struct gpio_callback *cb, u32_t pins)
 		printk("Magic Print %d\n", k_sem_count_get(&int_sem));
 		current_buffer.buffer[current_buffer.buffer_index] = now - current_buffer.buffer[current_buffer.buffer_index];
 		current_buffer.buffer_index++;
-	}else{
+	}else if(k_sem_count_get(&int_sem) == BUFFER_SIZE){
 		k_sem_give(&done_mut);
 	}
 	k_sem_give(&int_sem);
@@ -196,13 +194,6 @@ void main(void)
 	pwm_pin_set_cycles(PWM0, 1, 0, 0);
 	setup();
 
-	{
-		u64_t time1 = tsc_read();
-		printk("Running %llu\n", time1);
-		u64_t time2 = tsc_read();
-		printk("Time to print = %llu\n", time2 - time1);
-	}
-
 	pwm_pin_set_cycles(PWM0, 7, 0, 100);
 	pwm_pin_set_cycles(PWM0, 1, 0, 100);
 
@@ -211,9 +202,9 @@ void main(void)
 	{
 		current_buffer.buffer_index = 0;
 		current_buffer.buffer = interrupt_no_background_buffer;
-		k_sem_reset(&int_sem);
 		gpio_pin_enable_callback(GPIO_0, 3);
-		while(k_sem_count_get(&int_sem) < BUFFER_SIZE)
+		k_sem_reset(&int_sem);
+		while(k_sem_take(&done_mut, K_NO_WAIT) != 0)
 		{
 			current_buffer.buffer[current_buffer.buffer_index] = tsc_read();
 			gpio_pin_write(GPIO_0, 6, 1);
@@ -248,10 +239,8 @@ void main(void)
 
 		current_buffer.buffer_index = 0;
 		current_buffer.buffer = interrupt_w_background_buffer;
-		k_sem_reset(&int_sem);
-		k_busy_wait(500);
 
-		k_sem_take(&done_mut, K_FOREVER);
+		k_sem_reset(&int_sem);
 		while(k_sem_take(&done_mut, K_NO_WAIT) != 0)
 		{
 			k_sleep(500);
@@ -262,11 +251,9 @@ void main(void)
 
 		current_buffer.buffer_index = 0;
 		current_buffer.buffer = interrupt_w_background_buffer_reference;
-		k_sem_reset(&int_sem);
-		k_busy_wait(500);
 
 		//get reference data
-		k_sem_take(&done_mut, K_FOREVER);
+		k_sem_reset(&int_sem);
 		while(k_sem_take(&done_mut, K_NO_WAIT) != 0)
 		{
 			k_sleep(500);
@@ -319,8 +306,7 @@ void main(void)
 			}
 			pwm_period_reference /= 499;
 			pwm_start_reference = (current_buffer.buffer[0] % pwm_period_reference) - average_tcl_int_no_background;
-			// printk("period : %d\n", pwm_period_reference);
-			// printk("start time %d\n", pwm_start_reference);
+
 			for (int i = 0; i < BUFFER_SIZE; i++)
 			{
 				average_tcl_int_w_background_reference += ((current_buffer.buffer[i] % pwm_period_reference) - pwm_start_reference) % pwm_period_reference;
@@ -333,8 +319,6 @@ void main(void)
 				average_tcl_int_w_background += ((current_buffer.buffer[i] % pwm_period_reference) - pwm_start_reference) % pwm_period_reference;
 			}
 			average_tcl_int_w_background /= 500;
-			// printk("Test 2.0: \t-> %d\n", average_tcl_int_w_background_reference);
-			// printk("Test 2.1: \t-> %d\n", average_tcl_int_w_background);
 		}
 
 		//TEST 3///////////////////////////////////
@@ -346,7 +330,55 @@ void main(void)
 		average_tcl_int_context_switch /= 500;
 
 		printk("Test 1  : Interrupt with no background \t\t-> %d\n", average_tcl_int_no_background);
-		printk("Test 2  : Interrupt with background \t\t-> %d\n", average_tcl_int_w_background - average_tcl_int_w_background_reference);
+		printk("Test 2  : Interrupt with background \t\t-> %d\n", (average_tcl_int_w_background > average_tcl_int_w_background_reference ?
+			average_tcl_int_w_background - average_tcl_int_w_background_reference :
+			average_tcl_int_w_background_reference - average_tcl_int_w_background));
 		printk("Test 3  : context switch with no background \t-> %d\n", average_tcl_int_context_switch);
+		console_getline_init();
+		while(1){
+			printk("Enter 1, 2, 3 to output data from respective tests\n");
+			char *choice = console_getline();
+			switch(choice[0]){
+			case '1':
+			{
+				current_buffer.buffer = interrupt_no_background_buffer;
+				for (int i = 0; i < BUFFER_SIZE; i++)
+				{
+					printk("%llu\n", current_buffer.buffer[i]);
+				}
+				break;
+			}
+			case '2':
+			{
+				int pwm_period_reference = 0;
+				int pwm_start_reference = 0;
+
+				current_buffer.buffer = interrupt_w_background_buffer_reference;
+				for (int i = 1; i < BUFFER_SIZE; i++)
+				{
+					pwm_period_reference += current_buffer.buffer[i] - current_buffer.buffer[i-1];
+				}
+				pwm_period_reference /= 499;
+				pwm_start_reference = (current_buffer.buffer[0] % pwm_period_reference) - average_tcl_int_no_background;
+
+				for (int i = 0; i < BUFFER_SIZE; i++)
+				{
+					int br = ((interrupt_w_background_buffer_reference[i] % pwm_period_reference) - pwm_start_reference) % pwm_period_reference;
+					int b  = ((interrupt_w_background_buffer[i] % pwm_period_reference) - pwm_start_reference) % pwm_period_reference;
+					printk("%d\n", (b > br ? b - br : br - b));
+				}
+				break;
+			}
+			case '3':
+			{
+				current_buffer.buffer = context_switch_buffer;
+				for (int i = 0; i < BUFFER_SIZE; i++)
+				{
+					printk("%llu\n", current_buffer.buffer[i]);
+				}
+				break;
+			}
+			}
+		}
 	}
 }
