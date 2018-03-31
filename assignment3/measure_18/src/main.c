@@ -53,6 +53,7 @@ void passer_thread(void *my_sem, void *other_sem, void *dummy3);
 //test 3 variables
 K_MUTEX_DEFINE(context_switch_mutex);
 K_MUTEX_DEFINE(interupt_mutex);
+K_SEM_DEFINE(thread_ready, 0, 1);	/* starts off "not available" */
 static struct k_thread context_switch_higher_thread;
 static struct k_thread context_switch_lower_thread;
 void context_switch_higher(void *my_sem, void *other_sem, void *dummy3);
@@ -80,6 +81,7 @@ void context_switch_higher(void *dummy1, void *dummy2, void *dummy3)
 	while(current_buffer.buffer_index < BUFFER_SIZE)
 	{
 		k_sleep(10); // yield for the lower priority thread to lock
+		k_sem_give(&thread_ready);
 
 		k_mutex_lock(&context_switch_mutex, K_FOREVER); // wait for lower thread to fill current_buffer.buffer
 		*(current_buffer.buffer) = tsc_read() - *(current_buffer.buffer); // find difference from lower to higher time
@@ -94,6 +96,7 @@ void context_switch_lower(void *dummy1, void *dummy2, void *dummy3)
 	while(current_buffer.buffer_index < BUFFER_SIZE)
 	{
 		k_mutex_lock(&context_switch_mutex, K_FOREVER); // stop higher task from running
+		k_sem_take(&thread_ready, K_FOREVER);
 		*(current_buffer.buffer) = tsc_read(); // fill current_buffer.buffer
 		k_mutex_unlock(&context_switch_mutex); // allow higher task to run
 	}
