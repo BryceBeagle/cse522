@@ -119,6 +119,6 @@ static int i2c_flash_init(struct device *dev)
 
 static struct i2c_flash_data i2c_flash_memory_data;
 
-DEVICE_INIT(i2c_flash_memory, CONFIG_I2C_FLASH_W25QXXDV_DRV_NAME, i2c_flash_init,
+DEVICE_INIT(i2c_flash_memory, I2C_FLASH_24FC256_DRV_NAME, i2c_flash_init,
 	    &i2c_flash_memory_data, NULL, POST_KERNEL,
-	    CONFIG_I2C_FLASH_W25QXXDV_INIT_PRIORITY);
+	    I2C_FLASH_24FC256_INIT_PRIORITY);
