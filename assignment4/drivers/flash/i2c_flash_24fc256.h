@@ -16,8 +16,6 @@
 
 struct i2c_flash_data {
 	struct device *i2c;
-	u8_t buf[CONFIG_I2C_FLASH_W25QXXDV_MAX_DATA_LEN +
-		    W25QXXDV_LEN_CMD_ADDRESS];
 	struct k_sem sem;
 };
 

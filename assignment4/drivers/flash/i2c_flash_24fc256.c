@@ -16,6 +16,8 @@
 
 #define ADDRESS_COUNT (32*1024)
 #define PAGE_COUNT (ADDRESS_COUNT/64)
+#define EEPROM_ADDRESS 0xA0
+#define READ 0x01
 
 static int i2c_flash_wb_read(struct device *dev, off_t offset, void *data,
 			     size_t len)
@@ -29,8 +31,8 @@ static int i2c_flash_wb_read(struct device *dev, off_t offset, void *data,
 	read_control_buffer[0] = (offset & 0xFF00) >> 8;
 	read_control_buffer[1] = (offset & 0x00C0) >> 0;
 
-	ret |= i2c_write(driver_data->i2c, read_control_buffer, 2, 0xA0);
-	ret |= i2c_read(driver_data->i2c, data, len, 0xA1);
+	ret |= i2c_write(driver_data->i2c, read_control_buffer, 2, EEPROM_ADDRESS);
+	ret |= i2c_read(driver_data->i2c, data, len, EEPROM_ADDRESS | READ);
 
 	k_sem_give(&driver_data->sem);
 	return ret;
@@ -52,7 +54,7 @@ static int i2c_flash_wb_write(struct device *dev, off_t offset,
 		buffer[1] = (offset & 0x00C0) >> 0;
 		memcpy(buffer+2, data, len);
 
-		ret = i2c_write(driver_data->i2c, buffer, len, 0xA0);
+		ret = i2c_write(driver_data->i2c, buffer, len, EEPROM_ADDRESS);
 	}
 
 	k_sem_give(&driver_data->sem);
