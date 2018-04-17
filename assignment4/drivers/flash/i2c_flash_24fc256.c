@@ -24,6 +24,7 @@ static int i2c_flash_wb_read(struct device *dev, off_t offset, void *data,
 {
 	// random sequential read
 	// offset is relative to pages rather than bytes
+	struct i2c_flash_data *const driver_data = dev->driver_data;
 	u8_t read_control_buffer[2];
 	int ret = 0;
 	k_sem_take(&driver_data->sem, K_FOREVER);
@@ -43,6 +44,7 @@ static int i2c_flash_wb_write(struct device *dev, off_t offset,
 {
 	// only allow page writes (64 bytes)
 	// offset is relative to pages rather than bytes
+	struct i2c_flash_data *const driver_data = dev->driver_data;
 	u8_t buffer[66];
 	int ret = 0;
 	k_sem_take(&driver_data->sem, K_FOREVER);
@@ -65,6 +67,7 @@ static int i2c_flash_wb_write_protection_set(struct device *dev, bool enable)
 {
 	// toggles WP pin to 'enable'
 	// no need to implement
+	struct i2c_flash_data *const driver_data = dev->driver_data;
 	k_sem_take(&driver_data->sem, K_FOREVER);
 	k_sem_give(&driver_data->sem);
 	return 0;
@@ -73,6 +76,7 @@ static int i2c_flash_wb_write_protection_set(struct device *dev, bool enable)
 static int i2c_flash_wb_erase(struct device *dev, off_t offset, size_t size)
 {
 	// call write with an array of zeros for every page
+	struct i2c_flash_data *const driver_data = dev->driver_data;
 	k_sem_take(&driver_data->sem, K_FOREVER);
 
 	u8_t zeros[64];
@@ -99,7 +103,7 @@ static const struct flash_driver_api i2c_flash_api = {
 static int i2c_flash_init(struct device *dev)
 {
 	struct device *i2c_dev;
-	struct i2c_flash_data *data = dev->driver_data;
+	struct i2c_flash_data *const data = dev->driver_data;
 	int ret;
 
 	i2c_dev = device_get_binding(CONFIG_I2C_FLASH_24FC256_I2C_NAME);
@@ -121,6 +125,6 @@ static int i2c_flash_init(struct device *dev)
 
 static struct i2c_flash_data i2c_flash_memory_data;
 
-DEVICE_INIT(i2c_flash_memory, I2C_FLASH_24FC256_DRV_NAME, i2c_flash_init,
+DEVICE_INIT(i2c_flash_memory, CONFIG_I2C_FLASH_24FC256_DRV_NAME, i2c_flash_init,
 	    &i2c_flash_memory_data, NULL, POST_KERNEL,
-	    I2C_FLASH_24FC256_INIT_PRIORITY);
+	    CONFIG_I2C_FLASH_24FC256_INIT_PRIORITY);

@@ -13,6 +13,12 @@
 
 #include "hc_sr04.h"
 
+enum pin_level {
+	PIN_LOW = 0x00,
+	PIN_HIGH = 0x01,
+	DONT_CARE = 0xFF,
+};
+
 #define tsc_read() (_tsc_read())
 
 static void hc_sr04_gpio_callback(struct device *dev,
@@ -35,7 +41,7 @@ static int hc_sr04_sample_fetch(struct device *dev, enum sensor_channel chan)
 
 	k_sem_take(&drv_data->data_sem, K_FOREVER);
 
-	dev->distance = tsc_read();
+	drv_data->distance = tsc_read();
 	gpio_pin_write(drv_data->gpio, CONFIG_HC_SR04_GPIO_PIN_NUM_2, PIN_HIGH);
 	k_busy_wait(10);
 	gpio_pin_write(drv_data->gpio, CONFIG_HC_SR04_GPIO_PIN_NUM_2, PIN_LOW);
@@ -87,18 +93,18 @@ static int hc_sr04_init(struct device *dev)
 	k_sem_init(&drv_data->data_sem, 0, 1);
 
 	/* setup data ready gpio trigger on shield pin 2*/
-	gpio_pin_configure(drv_data->exp, HC_SR04_EXP_PIN_NUM_3, GPIO_DIR_OUT);
-	gpio_pin_write(drv_data->exp, HC_SR04_EXP_PIN_NUM_3, PIN_LOW);
-	gpio_pin_configure(drv_data->exp, HC_SR04_EXP_PIN_NUM_4, GPIO_DIR_OUT);
-	gpio_pin_write(drv_data->exp, HC_SR04_EXP_PIN_NUM_4, PIN_LOW);
+	gpio_pin_configure(drv_data->exp, CONFIG_HC_SR04_EXP_PIN_NUM_3, GPIO_DIR_OUT);
+	gpio_pin_write(drv_data->exp, CONFIG_HC_SR04_EXP_PIN_NUM_3, PIN_LOW);
+	gpio_pin_configure(drv_data->exp, CONFIG_HC_SR04_EXP_PIN_NUM_4, GPIO_DIR_OUT);
+	gpio_pin_write(drv_data->exp, CONFIG_HC_SR04_EXP_PIN_NUM_4, PIN_LOW);
 	gpio_pin_configure(drv_data->gpio, CONFIG_HC_SR04_GPIO_PIN_NUM_2, GPIO_DIR_OUT);
 	gpio_pin_write(drv_data->gpio, CONFIG_HC_SR04_GPIO_PIN_NUM_2, PIN_LOW);
 
 	/* setup data ready gpio interrupt on shield pin 0*/
-	gpio_pin_configure(drv_data->exp, HC_SR04_EXP_PIN_NUM_1, GPIO_DIR_OUT);
-	gpio_pin_write(drv_data->exp, HC_SR04_EXP_PIN_NUM_1, PIN_HIGH);
-	gpio_pin_configure(drv_data->exp, HC_SR04_EXP_PIN_NUM_2, GPIO_DIR_OUT);
-	gpio_pin_write(drv_data->exp, HC_SR04_EXP_PIN_NUM_2, PIN_LOW);
+	gpio_pin_configure(drv_data->exp, CONFIG_HC_SR04_EXP_PIN_NUM_1, GPIO_DIR_OUT);
+	gpio_pin_write(drv_data->exp, CONFIG_HC_SR04_EXP_PIN_NUM_1, PIN_HIGH);
+	gpio_pin_configure(drv_data->exp, CONFIG_HC_SR04_EXP_PIN_NUM_2, GPIO_DIR_OUT);
+	gpio_pin_write(drv_data->exp, CONFIG_HC_SR04_EXP_PIN_NUM_2, PIN_LOW);
 
 	gpio_pin_configure(drv_data->gpio, CONFIG_HC_SR04_GPIO_PIN_NUM_1,
 			   GPIO_DIR_IN | GPIO_INT | GPIO_INT_EDGE | GPIO_INT_ACTIVE_HIGH);
