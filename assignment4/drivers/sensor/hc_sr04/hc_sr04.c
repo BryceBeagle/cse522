@@ -30,7 +30,7 @@ static void hc_sr04_gpio_callback(struct device *dev,
 
 	ARG_UNUSED(pins);
 
-	drv_data->distance = (now - drv_data->distance) / 400000000;
+	drv_data->distance = (now - drv_data->distance) * 1000000 / 400000000 / 58;
 
 	k_sem_give(&drv_data->data_sem);
 }
