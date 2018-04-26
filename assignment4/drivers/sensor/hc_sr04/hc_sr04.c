@@ -146,7 +146,7 @@ static int hc_sr04_init(struct device *dev) {
 
 	return 0;
 }
-`
+
 static struct hc_sr04_data hc_sr04_data;
 
 DEVICE_INIT(hc_sr04, CONFIG_HC_SR04_NAME, hc_sr04_init, &hc_sr04_data,
