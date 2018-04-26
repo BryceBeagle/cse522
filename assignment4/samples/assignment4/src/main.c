@@ -38,7 +38,7 @@ void radar_read(void *hc_device, void *b, void *c) {
 		printk("Getting distance\n");
 		sensor_channel_get(HCSR, SENSOR_CHAN_PROX, &distance);
 
-		printk("Distance: %d\n", distance.val1);
+		printk("Distance: %d.%06d\n", distance.val1, distance.val2);
 
 		k_sleep(1000);
 
