@@ -15,6 +15,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <shell/shell.h>
+#include <gpio.h>
 
 #define STACKSIZE 1024
 
@@ -26,10 +27,11 @@ k_tid_t hcsr_thread_0_tid, hcsr_thread_1_tid;
 struct device *EEPROM_0;
 
 void radar_read(void *hc_device, void *b, void *c) {
-	printk("Thread running");
 
 	ARG_UNUSED(b);
 	ARG_UNUSED(c);
+
+	printk("Thread running");
 
 	struct device *HCSR = hc_device;
 
@@ -80,15 +82,39 @@ int cmd_start_recording(int argc, char *argv[]) {
 
 	const char *val = argv[1];
 
-	flash_erase(EEPROM_0, NULL, (size_t) strtol(val, NULL, 10));
+	size_t p = (size_t) strtol(val, NULL, 10);
+
+	flash_erase(EEPROM_0, NULL, p);
 
 	return 0;
 }
 
+int cmd_dump_distances(int argc, char *argv[]) {
+
+	if (argc != 3) return -EINVAL;
+
+	const char *val1 = argv[1], *val2 = argv[2];
+
+	size_t p1 = (size_t) strtol(val1, NULL, 10);
+	size_t p2 = (size_t) strtol(val2, NULL, 10);
+
+	int page_buffer[1024];
+
+	for (off_t i = p1; i <= p2; i++) {
+		flash_read(EEPROM_0, p1, page_buffer, sizeof(page_buffer));
+		for (int x = 0; x < 1024; x++) {
+			printk("%d\n", page_buffer[x]);
+		}
+	}
+
+	return 0;
+
+}
 
 static const struct shell_cmd commands[] = {
 		{"Enable", cmd_enable_distance_sensors},
-		{"Start", cmd_start_recording},
+		{"Start",  cmd_start_recording},
+		{"Dump",   cmd_dump_distances},
 		{NULL, NULL}
 };
 
@@ -101,21 +127,21 @@ void init_shell() {
 
 void main(void) {
 
-	printk("Main starting\n");
-
 	struct k_thread hcsr_thread_0, hcsr_thread_1;
 
 	EEPROM_0 = device_get_binding(CONFIG_I2C_FLASH_24FC256_DRV_NAME);
 	struct device *HCSR_0 = device_get_binding(CONFIG_HC_SR04_NAME);
 	struct device *HCSR_1 = device_get_binding(CONFIG_HC_SR04_NAME);
 
-	printk("Creating threads with priority %i\n", k_thread_priority_get(k_current_get()) + 1);
+	int priority = k_thread_priority_get(k_current_get()) + 1;
+
+	printk("Creating threads with priority %i\n", priority);
 	hcsr_thread_0_tid = k_thread_create(&hcsr_thread_0, stack_area_0, STACKSIZE,
 	                                    radar_read, HCSR_0, NULL, NULL,
-	                                    k_thread_priority_get(k_current_get()) + 1, 0, K_NO_WAIT);
+	                                    priority, 0, K_NO_WAIT);
 	hcsr_thread_1_tid = k_thread_create(&hcsr_thread_1, stack_area_1, STACKSIZE,
 	                                    radar_read, HCSR_1, NULL, NULL,
-	                                    k_thread_priority_get(k_current_get()) + 1, 0, K_NO_WAIT);
+	                                    priority, 0, K_NO_WAIT);
 
 	printk("Threads created\n");
 
@@ -125,68 +151,5 @@ void main(void) {
 	// Set up shell
 	init_shell();
 
-	//perhaps set time slicing for radar tasks
-
-
-
-//	console_getline_init();
-//	while (1) {
-//		char *command_line = console_getline();
-//		char *command_type = strtok(command_line, " ");
-//		if (!strcmp(command_type, "Enable")) {
-//			//enable the two threads running the sensors
-//			char *input_parameter = strtok(NULL, " ");
-//			char n = strtol(p_string, NULL, 10);
-//
-//			switch (n) {
-//				case 2:
-//					//enable HCSR_0's thread
-//					//enable HCSR_1's thread
-//					k_thread_resume(hcsr_thread_0_tid);
-//					k_thread_resume(hcsr_thread_1_tid);
-//					break;
-//				case 1:
-//					//enable HCSR_0's thread
-//					//disable HCSR_1's thread
-//					k_thread_resume(hcsr_thread_0_tid);
-//					k_thread_suspend(hcsr_thread_1_tid);
-//					break;
-//				case 0:
-//					//disable HCSR_0's thread
-//					//disable HCSR_1's thread
-//					k_thread_suspend(hcsr_thread_0_tid);
-//					k_thread_suspend(hcsr_thread_1_tid);
-//					break;
-//				default:
-//					printk("Exiting\n");
-//					exit(-1);
-//			}
-//
-//		} else if (strcmp(command_type, "Start")) {
-//			//erase the pages up to input p
-//			char *p_string = strtok(NULL, " ");
-//			size_t p = strtol(p_string, NULL, 10);
-//
-//			flash_erase(EEPROM_0, NULL, p);
-//
-//		} else if (strcmp(command_type, "Dump")) {
-//			//print pages between input p1 and p2
-//			char *p1_string = strtok(NULL, " ");
-//			off_t p1 = strtol(p1_string, NULL, 10);
-//			char *p2_string = strtok(NULL, " ");
-//			off_t p2 = strtol(p2_string, NULL, 10);
-//			int page_buffer[1024];
-//
-//			for (off_t i = p1; i <= p2; i++) {
-//				flash_read(EEPROM_0, p1, page_buffer, sizeof(page_buffer));
-//				for (int x = 0; x < 1024; x++) {
-//					printk("%d\n", page_buffer[x]);
-//				}
-//			}
-//
-//		}
-//
-//		//yield to the threads in some fashion
-//		NULL;
-//	}
+	// TODO: Yield?
 }
