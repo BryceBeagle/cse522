@@ -63,6 +63,10 @@ void main(void) {
 
 	printk("Thread created\n");
 
+	while (1) {
+		NULL;
+	}
+
 //	hcsr_thread_1_tid = k_thread_create(&hcsr_thread_1, stack_area_1, STACKSIZE,
 //	                                    radar_read, HCSR_1, NULL, NULL,
 //	                                    k_thread_priority_get(k_current_get()) + 1, 0, K_NO_WAIT);
