@@ -21,28 +21,6 @@ enum pin_level {
 
 #define tsc_read() (_tsc_read())
 
-static void hc_sr04_gpio_callback(struct device *dev,
-                                  struct gpio_callback *cb, u32_t pins) {
-	ARG_UNUSED(pins);
-
-	printk("    Callback called\n");
-
-	printk("    CB Reading TSC\n");
-	u64_t now = tsc_read();
-
-	printk("Getting container\n");
-	struct hc_sr04_data *drv_data = CONTAINER_OF(cb,
-	                                             struct hc_sr04_data,
-	                                             gpio_cb);
-
-	printk("Getting distance\n");
-	drv_data->distance = (now - drv_data->start_time) * 1000000
-	                     / 400000000 / 58;
-
-	printk("    CB Giving semaphore\n");
-	k_sem_give(&drv_data->data_sem);
-}
-
 static int hc_sr04_sample_fetch(struct device *dev, enum sensor_channel chan) {
 	struct hc_sr04_data *drv_data = dev->driver_data;
 
@@ -151,13 +129,6 @@ static int hc_sr04_init(struct device *dev) {
 	                         GPIO_DIR_IN | GPIO_INT | GPIO_INT_EDGE |
 	                         GPIO_INT_ACTIVE_HIGH);
 	if (res) printk("Error 11\n");
-	gpio_init_callback(&drv_data->gpio_cb, hc_sr04_gpio_callback,
-	                   BIT(CONFIG_HC_SR04_GPIO_PIN_NUM_1));
-	if (gpio_add_callback(drv_data->gpio, &drv_data->gpio_cb) < 0) {
-		SYS_LOG_DBG("Failed to set GPIO callback");
-		return -EIO;
-	}
-	gpio_pin_enable_callback(drv_data->gpio, CONFIG_HC_SR04_GPIO_PIN_NUM_1);
 
 	dev->driver_api = &hc_sr04_driver_api;
 

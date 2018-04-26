@@ -31,7 +31,7 @@ void radar_read(void *hc_device, void *b, void *c) {
 	ARG_UNUSED(b);
 	ARG_UNUSED(c);
 
-	printk("Thread running");
+	printk("Thread running\n");
 
 	struct device *HCSR = hc_device;
 
@@ -125,6 +125,28 @@ void init_shell() {
 	shell_init("> ");
 }
 
+static void hc_sr04_gpio_callback(struct device *dev,
+                                  struct gpio_callback *cb, u32_t pins) {
+	ARG_UNUSED(pins);
+
+	printk("    Callback called\n");
+
+	printk("    CB Reading TSC\n");
+	u64_t now = _tsc_read();
+//
+//	printk("Getting container\n");
+//	struct hc_sr04_data *drv_data = CONTAINER_OF(cb,
+//	                                             struct hc_sr04_data,
+//	                                             gpio_cb);
+//
+//	printk("Getting distance\n");
+//	drv_data->distance = (now - drv_data->start_time) * 1000000
+//	                     / 400000000 / 58;
+//
+//	printk("    CB Giving semaphore\n");
+//	k_sem_give(&drv_data->data_sem);
+}
+
 void main(void) {
 
 	struct k_thread hcsr_thread_0, hcsr_thread_1;
@@ -134,6 +156,16 @@ void main(void) {
 	struct device *HCSR_1 = device_get_binding(CONFIG_HC_SR04_NAME);
 
 	int priority = k_thread_priority_get(k_current_get()) + 1;
+
+	struct device *gpio = device_get_binding(CONFIG_HC_SR04_GPIO_DEV_NAME);
+	struct gpio_callback gpio_cb;
+	gpio_init_callback(&gpio_cb, hc_sr04_gpio_callback,
+	                   BIT(CONFIG_HC_SR04_GPIO_PIN_NUM_1));
+	if (gpio_add_callback(gpio, &gpio_cb) < 0) {
+		printk("Failed to set GPIO callback\n");
+		return;
+	}
+	gpio_pin_enable_callback(gpio, CONFIG_HC_SR04_GPIO_PIN_NUM_1);
 
 	printk("Creating threads with priority %i\n", priority);
 	hcsr_thread_0_tid = k_thread_create(&hcsr_thread_0, stack_area_0, STACKSIZE,
