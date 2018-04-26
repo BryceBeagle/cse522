@@ -13,8 +13,11 @@ struct hc_sr04_data {
 	struct device *gpio;
 	struct device *exp;
 	struct gpio_callback gpio_cb;
-	u64_t distance;
+
 	struct k_sem data_sem;
+
+	u64_t start_time;
+	float distance;
 };
 
 #define SYS_LOG_DOMAIN "HC_SR04"

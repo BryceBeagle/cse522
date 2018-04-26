@@ -36,7 +36,8 @@ static void hc_sr04_gpio_callback(struct device *dev,
 	                                             gpio_cb);
 
 	printk("Getting distance\n");
-	drv_data->distance = (now - drv_data->distance) * 1000000 / 400000000 / 58;
+	drv_data->distance = (now - drv_data->start_time) * 1000000
+	                     / 400000000 / 58;
 
 	printk("    CB Giving semaphore\n");
 	k_sem_give(&drv_data->data_sem);
@@ -49,7 +50,7 @@ static int hc_sr04_sample_fetch(struct device *dev, enum sensor_channel chan) {
 	k_sem_take(&drv_data->data_sem, K_FOREVER);
 
 	printk("    Reading TSC\n");
-	drv_data->distance = tsc_read();
+	drv_data->start_time = tsc_read();
 
 	printk("    Setting pin high\n");
 	gpio_pin_write(drv_data->gpio, CONFIG_HC_SR04_GPIO_PIN_NUM_2, PIN_HIGH);
