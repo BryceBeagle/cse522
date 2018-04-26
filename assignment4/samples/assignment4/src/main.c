@@ -126,10 +126,10 @@ static const struct shell_cmd commands[] = {
 };
 
 void init_shell() {
-
-	SHELL_REGISTER("assign4", commands);
-	shell_register_default_module("assign4");
-	shell_init("> ");
+//
+//	SHELL_REGISTER("assign4", commands);
+//	shell_register_default_module("assign4");
+//	shell_init("> ");
 }
 
 static void hc_sr04_gpio_callback(struct device *dev,
@@ -169,11 +169,13 @@ void main(void) {
 
 	if(gpio_pin_configure(exp,    0, GPIO_DIR_OUT) ||
 	   gpio_pin_configure(exp,    1, GPIO_DIR_OUT) ||
-	   gpio_pin_configure(gpio,  3, GPIO_DIR_IN | GPIO_INT | GPIO_INT_ACTIVE_HIGH | GPIO_INT_EDGE) ) //rising edge trigger interrupt
+	   gpio_pin_configure(gpio,  3, GPIO_DIR_IN ) ) //rising edge trigger interrupt
 	{
 		printk("ERROR 0.4\n");
 		return;
 	}
+
+	gpio_pin_enable_callback(gpio, 3);
 
 	gpio_init_callback(&gpio_cb, hc_sr04_gpio_callback, BIT(3));
 	gpio_add_callback(gpio, &gpio_cb);
@@ -187,24 +189,31 @@ void main(void) {
 
 	int priority = k_thread_priority_get(k_current_get()) + 1;
 
-	printk("Creating threads with priority %i\n", priority);
-	hcsr_thread_0_tid = k_thread_create(&hcsr_thread_0, stack_area_0, STACKSIZE,
-	                                    radar_read, HCSR_0, NULL, NULL,
-	                                    priority, 0, K_NO_WAIT);
-	hcsr_thread_1_tid = k_thread_create(&hcsr_thread_1, stack_area_1, STACKSIZE,
-	                                    radar_read, HCSR_1, NULL, NULL,
-	                                    priority, 0, K_NO_WAIT);
-
-	printk("Threads created\n");
-
-	k_thread_suspend(hcsr_thread_0_tid);
-	k_thread_suspend(hcsr_thread_1_tid);
+//	printk("Creating threads with priority %i\n", priority);
+//	hcsr_thread_0_tid = k_thread_create(&hcsr_thread_0, stack_area_0, STACKSIZE,
+//	                                    radar_read, HCSR_0, NULL, NULL,
+//	                                    priority, 0, K_NO_WAIT);
+//	hcsr_thread_1_tid = k_thread_create(&hcsr_thread_1, stack_area_1, STACKSIZE,
+//	                                    radar_read, HCSR_1, NULL, NULL,
+//	                                    priority, 0, K_NO_WAIT);
+//
+//	printk("Threads created\n");
+//
+//	k_thread_suspend(hcsr_thread_0_tid);
+//	k_thread_suspend(hcsr_thread_1_tid);
 
 	// Set up shell
-	init_shell();
+//	init_shell();
 
+	uint32_t test;
 	for (;;) {
-		k_sleep(10);
+		sensor_sample_fetch(HCSR_0);
+		test = 0;
+		while (!test) {
+			gpio_pin_read(gpio, CONFIG_HC_SR04_GPIO_PIN_NUM_1, &test);
+		}
+		printk("Pin High\n");
+		k_busy_wait(10000);
 	}
 
 	// TODO: Yield?

@@ -41,9 +41,9 @@ static int hc_sr04_sample_fetch(struct device *dev, enum sensor_channel chan) {
 	gpio_pin_write(drv_data->gpio, CONFIG_HC_SR04_GPIO_PIN_NUM_2, PIN_LOW);
 
 	printk("    Taking semaphore again\n");
-	k_sem_take(&drv_data->data_sem, K_FOREVER);
+//	k_sem_take(&drv_data->data_sem, K_FOREVER);
 
-	printk("    Giving semaphore");
+	printk("    Giving semaphore\n");
 	k_sem_give(&drv_data->data_sem);
 
 	printk("Returning\n");
