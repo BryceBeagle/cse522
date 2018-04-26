@@ -10,6 +10,7 @@
 #include <sensor.h>
 #include <misc/util.h>
 #include <misc/__assert.h>
+#include <board.h>
 
 #include "hc_sr04.h"
 
@@ -73,8 +74,8 @@ static const struct sensor_driver_api hc_sr04_driver_api = {
 static int hc_sr04_init(struct device *dev) {
 	struct hc_sr04_data *drv_data = dev->driver_data;
 
-	drv_data->exp = device_get_binding(CONFIG_HC_SR04_EXP_DEV_NAME);
-	drv_data->gpio = device_get_binding(CONFIG_HC_SR04_GPIO_DEV_NAME);
+	drv_data->exp = device_get_binding(PINMUX_GALILEO_EXP1_NAME);
+	drv_data->gpio = device_get_binding(PINMUX_GALILEO_GPIO_DW_NAME);
 	if (drv_data->exp == NULL) {
 		SYS_LOG_DBG("Failed to get pointer to %s device",
 		            CONFIG_HC_SR04_EXP_DEV_NAME);
@@ -110,25 +111,6 @@ static int hc_sr04_init(struct device *dev) {
 	res = gpio_pin_write(drv_data->gpio,
 	                     CONFIG_HC_SR04_GPIO_PIN_NUM_2, PIN_LOW);
 	if (res) printk("Error 6\n");
-
-	/* setup data ready gpio interrupt on shield pin 0*/
-	res = gpio_pin_configure(drv_data->exp,
-	                         CONFIG_HC_SR04_EXP_PIN_NUM_1, GPIO_DIR_OUT);
-	if (res) printk("Error 7\n");
-	res = gpio_pin_configure(drv_data->exp,
-	                         CONFIG_HC_SR04_EXP_PIN_NUM_2, GPIO_DIR_OUT);
-	if (res) printk("Error 8\n");
-	res = gpio_pin_write(drv_data->exp,
-	                     CONFIG_HC_SR04_EXP_PIN_NUM_1, PIN_HIGH);
-	if (res) printk("Error 9\n");
-	res = gpio_pin_write(drv_data->exp,
-	                     CONFIG_HC_SR04_EXP_PIN_NUM_2, PIN_LOW);
-	if (res) printk("Error 10\n");
-
-	res = gpio_pin_configure(drv_data->gpio, CONFIG_HC_SR04_GPIO_PIN_NUM_1,
-	                         GPIO_DIR_IN | GPIO_INT | GPIO_INT_EDGE |
-	                         GPIO_INT_ACTIVE_HIGH);
-	if (res) printk("Error 11\n");
 
 	dev->driver_api = &hc_sr04_driver_api;
 

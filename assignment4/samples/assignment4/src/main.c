@@ -16,6 +16,7 @@
 #include <string.h>
 #include <shell/shell.h>
 #include <gpio.h>
+#include <board.h>
 
 #define STACKSIZE 1024
 
@@ -25,6 +26,12 @@ K_THREAD_STACK_DEFINE(stack_area_1, STACKSIZE);
 // TODO: somehow not global?
 k_tid_t hcsr_thread_0_tid, hcsr_thread_1_tid;
 struct device *EEPROM_0;
+
+enum pin_level {
+	PIN_LOW = 0x00,
+	PIN_HIGH = 0x01,
+	DONT_CARE = 0xFF,
+};
 
 void radar_read(void *hc_device, void *b, void *c) {
 
@@ -151,13 +158,13 @@ void main(void) {
 
 	struct k_thread hcsr_thread_0, hcsr_thread_1;
 
-	EEPROM_0 = device_get_binding(CONFIG_I2C_FLASH_24FC256_DRV_NAME);
+	EEPROM_0 = device_get_binding(PINMUX_GALILEO_EXP1_NAME);
 	struct device *HCSR_0 = device_get_binding(CONFIG_HC_SR04_NAME);
 	struct device *HCSR_1 = device_get_binding(CONFIG_HC_SR04_NAME);
 
-	int priority = k_thread_priority_get(k_current_get()) + 1;
+	struct device *gpio = device_get_binding(PINMUX_GALILEO_GPIO_DW_NAME);
+	struct device *exp = device_get_binding(PINMUX_GALILEO_GPIO_DW_NAME);
 
-	struct device *gpio = device_get_binding(CONFIG_HC_SR04_GPIO_DEV_NAME);
 	struct gpio_callback gpio_cb;
 	gpio_init_callback(&gpio_cb, hc_sr04_gpio_callback,
 	                   BIT(CONFIG_HC_SR04_GPIO_PIN_NUM_1));
@@ -165,7 +172,31 @@ void main(void) {
 		printk("Failed to set GPIO callback\n");
 		return;
 	}
+
+	int res;
+
+	/* setup data ready gpio interrupt on shield pin 0*/
+	res = gpio_pin_configure(exp,
+	                         CONFIG_HC_SR04_EXP_PIN_NUM_1, GPIO_DIR_OUT);
+	if (res) printk("Error 7\n");
+	res = gpio_pin_configure(exp,
+	                         CONFIG_HC_SR04_EXP_PIN_NUM_2, GPIO_DIR_OUT);
+	if (res) printk("Error 8\n");
+	res = gpio_pin_write(exp,
+	                     CONFIG_HC_SR04_EXP_PIN_NUM_1, PIN_HIGH);
+	if (res) printk("Error 9\n");
+	res = gpio_pin_write(exp,
+	                     CONFIG_HC_SR04_EXP_PIN_NUM_2, PIN_LOW);
+	if (res) printk("Error 10\n");
+
+	res = gpio_pin_configure(gpio, CONFIG_HC_SR04_GPIO_PIN_NUM_1,
+	                         GPIO_DIR_IN | GPIO_INT | GPIO_INT_EDGE |
+	                         GPIO_INT_ACTIVE_HIGH);
+	if (res) printk("Error 11\n");
+
 	gpio_pin_enable_callback(gpio, CONFIG_HC_SR04_GPIO_PIN_NUM_1);
+
+	int priority = k_thread_priority_get(k_current_get()) + 1;
 
 	printk("Creating threads with priority %i\n", priority);
 	hcsr_thread_0_tid = k_thread_create(&hcsr_thread_0, stack_area_0, STACKSIZE,
@@ -182,6 +213,10 @@ void main(void) {
 
 	// Set up shell
 	init_shell();
+
+	for (;;) {
+		k_sleep(10);
+	}
 
 	// TODO: Yield?
 }
