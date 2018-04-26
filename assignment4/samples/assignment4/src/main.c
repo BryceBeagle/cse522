@@ -158,43 +158,32 @@ void main(void) {
 
 	struct k_thread hcsr_thread_0, hcsr_thread_1;
 
-	EEPROM_0 = device_get_binding(PINMUX_GALILEO_EXP1_NAME);
+	EEPROM_0 = device_get_binding(CONFIG_I2C_FLASH_24FC256_DRV_NAME);
 	struct device *HCSR_0 = device_get_binding(CONFIG_HC_SR04_NAME);
 	struct device *HCSR_1 = device_get_binding(CONFIG_HC_SR04_NAME);
 
+	struct device *exp = device_get_binding(PINMUX_GALILEO_EXP1_NAME);
 	struct device *gpio = device_get_binding(PINMUX_GALILEO_GPIO_DW_NAME);
-	struct device *exp = device_get_binding(PINMUX_GALILEO_GPIO_DW_NAME);
 
 	struct gpio_callback gpio_cb;
-	gpio_init_callback(&gpio_cb, hc_sr04_gpio_callback,
-	                   BIT(CONFIG_HC_SR04_GPIO_PIN_NUM_1));
-	if (gpio_add_callback(gpio, &gpio_cb) < 0) {
-		printk("Failed to set GPIO callback\n");
+
+	if(gpio_pin_configure(exp,    0, GPIO_DIR_OUT) ||
+	   gpio_pin_configure(exp,    1, GPIO_DIR_OUT) ||
+	   gpio_pin_configure(gpio,  3, GPIO_DIR_IN | GPIO_INT | GPIO_INT_ACTIVE_HIGH | GPIO_INT_EDGE) ) //rising edge trigger interrupt
+	{
+		printk("ERROR 0.4\n");
 		return;
 	}
 
-	int res;
+	gpio_init_callback(&gpio_cb, hc_sr04_gpio_callback, BIT(3));
+	gpio_add_callback(gpio, &gpio_cb);
 
-	/* setup data ready gpio interrupt on shield pin 0*/
-	res = gpio_pin_configure(exp,
-	                         CONFIG_HC_SR04_EXP_PIN_NUM_1, GPIO_DIR_OUT);
-	if (res) printk("Error 7\n");
-	res = gpio_pin_configure(exp,
-	                         CONFIG_HC_SR04_EXP_PIN_NUM_2, GPIO_DIR_OUT);
-	if (res) printk("Error 8\n");
-	res = gpio_pin_write(exp,
-	                     CONFIG_HC_SR04_EXP_PIN_NUM_1, PIN_HIGH);
-	if (res) printk("Error 9\n");
-	res = gpio_pin_write(exp,
-	                     CONFIG_HC_SR04_EXP_PIN_NUM_2, PIN_LOW);
-	if (res) printk("Error 10\n");
-
-	res = gpio_pin_configure(gpio, CONFIG_HC_SR04_GPIO_PIN_NUM_1,
-	                         GPIO_DIR_IN | GPIO_INT | GPIO_INT_EDGE |
-	                         GPIO_INT_ACTIVE_HIGH);
-	if (res) printk("Error 11\n");
-
-	gpio_pin_enable_callback(gpio, CONFIG_HC_SR04_GPIO_PIN_NUM_1);
+	if(gpio_pin_write(exp,    0, PIN_HIGH) ||
+	   gpio_pin_write(exp,    1, PIN_LOW)  )
+	{
+		printk("ERROR 0.5\n");
+		return;
+	}
 
 	int priority = k_thread_priority_get(k_current_get()) + 1;
 
