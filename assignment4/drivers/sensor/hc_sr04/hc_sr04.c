@@ -23,16 +23,19 @@ enum pin_level {
 
 static void hc_sr04_gpio_callback(struct device *dev,
                                   struct gpio_callback *cb, u32_t pins) {
+	ARG_UNUSED(pins);
 
 	printk("    Callback called\n");
 
 	printk("    CB Reading TSC\n");
 	u64_t now = tsc_read();
-	struct hc_sr04_data *drv_data =
-			CONTAINER_OF(cb, struct hc_sr04_data, gpio_cb);
 
-	ARG_UNUSED(pins);
+	printk("Getting container\n");
+	struct hc_sr04_data *drv_data = CONTAINER_OF(cb,
+	                                             struct hc_sr04_data,
+	                                             gpio_cb);
 
+	printk("Getting distance\n");
 	drv_data->distance = (now - drv_data->distance) * 1000000 / 400000000 / 58;
 
 	printk("    CB Giving semaphore\n");
@@ -94,11 +97,13 @@ static int hc_sr04_init(struct device *dev) {
 	drv_data->exp = device_get_binding(CONFIG_HC_SR04_EXP_DEV_NAME);
 	drv_data->gpio = device_get_binding(CONFIG_HC_SR04_GPIO_DEV_NAME);
 	if (drv_data->exp == NULL) {
-		SYS_LOG_DBG("Failed to get pointer to %s device", CONFIG_HC_SR04_EXP_DEV_NAME);
+		SYS_LOG_DBG("Failed to get pointer to %s device",
+		            CONFIG_HC_SR04_EXP_DEV_NAME);
 		return -EINVAL;
 	}
 	if (drv_data->gpio == NULL) {
-		SYS_LOG_DBG("Failed to get pointer to %s device", CONFIG_HC_SR04_GPIO_DEV_NAME);
+		SYS_LOG_DBG("Failed to get pointer to %s device",
+		            CONFIG_HC_SR04_GPIO_DEV_NAME);
 		return -EINVAL;
 	}
 
@@ -107,32 +112,43 @@ static int hc_sr04_init(struct device *dev) {
 	int res;
 
 	/* setup data ready gpio trigger on shield pin 2*/
-	res = gpio_pin_configure(drv_data->exp, CONFIG_HC_SR04_EXP_PIN_NUM_3, GPIO_DIR_OUT);
+	res = gpio_pin_configure(drv_data->exp,
+	                         CONFIG_HC_SR04_EXP_PIN_NUM_3, GPIO_DIR_OUT);
 	if (res) printk("Error 1\n");
-	res = gpio_pin_configure(drv_data->exp, CONFIG_HC_SR04_EXP_PIN_NUM_4, GPIO_DIR_OUT);
+	res = gpio_pin_configure(drv_data->exp,
+	                         CONFIG_HC_SR04_EXP_PIN_NUM_4, GPIO_DIR_OUT);
 	if (res) printk("Error 2\n");
-	res = gpio_pin_configure(drv_data->gpio, CONFIG_HC_SR04_GPIO_PIN_NUM_2, GPIO_DIR_OUT);
+	res = gpio_pin_configure(drv_data->gpio,
+	                         CONFIG_HC_SR04_GPIO_PIN_NUM_2, GPIO_DIR_OUT);
 	if (res) printk("Error 3\n");
 
-	res = gpio_pin_write(drv_data->exp, CONFIG_HC_SR04_EXP_PIN_NUM_3, PIN_LOW);
+	res = gpio_pin_write(drv_data->exp,
+	                     CONFIG_HC_SR04_EXP_PIN_NUM_3, PIN_LOW);
 	if (res) printk("Error 4\n");
-	res = gpio_pin_write(drv_data->exp, CONFIG_HC_SR04_EXP_PIN_NUM_4, PIN_LOW);
+	res = gpio_pin_write(drv_data->exp,
+	                     CONFIG_HC_SR04_EXP_PIN_NUM_4, PIN_LOW);
 	if (res) printk("Error 5\n");
-	res = gpio_pin_write(drv_data->gpio, CONFIG_HC_SR04_GPIO_PIN_NUM_2, PIN_LOW);
+	res = gpio_pin_write(drv_data->gpio,
+	                     CONFIG_HC_SR04_GPIO_PIN_NUM_2, PIN_LOW);
 	if (res) printk("Error 6\n");
 
 	/* setup data ready gpio interrupt on shield pin 0*/
-	res = gpio_pin_configure(drv_data->exp, CONFIG_HC_SR04_EXP_PIN_NUM_1, GPIO_DIR_OUT);
+	res = gpio_pin_configure(drv_data->exp,
+	                         CONFIG_HC_SR04_EXP_PIN_NUM_1, GPIO_DIR_OUT);
 	if (res) printk("Error 7\n");
-	res = gpio_pin_configure(drv_data->exp, CONFIG_HC_SR04_EXP_PIN_NUM_2, GPIO_DIR_OUT);
+	res = gpio_pin_configure(drv_data->exp,
+	                         CONFIG_HC_SR04_EXP_PIN_NUM_2, GPIO_DIR_OUT);
 	if (res) printk("Error 8\n");
-	res = gpio_pin_write(drv_data->exp, CONFIG_HC_SR04_EXP_PIN_NUM_1, PIN_HIGH);
+	res = gpio_pin_write(drv_data->exp,
+	                     CONFIG_HC_SR04_EXP_PIN_NUM_1, PIN_HIGH);
 	if (res) printk("Error 9\n");
-	res = gpio_pin_write(drv_data->exp, CONFIG_HC_SR04_EXP_PIN_NUM_2, PIN_LOW);
+	res = gpio_pin_write(drv_data->exp,
+	                     CONFIG_HC_SR04_EXP_PIN_NUM_2, PIN_LOW);
 	if (res) printk("Error 10\n");
 
 	res = gpio_pin_configure(drv_data->gpio, CONFIG_HC_SR04_GPIO_PIN_NUM_1,
-	                         GPIO_DIR_IN | GPIO_INT | GPIO_INT_EDGE | GPIO_INT_ACTIVE_HIGH);
+	                         GPIO_DIR_IN | GPIO_INT | GPIO_INT_EDGE |
+	                         GPIO_INT_ACTIVE_HIGH);
 	if (res) printk("Error 11\n");
 	gpio_init_callback(&drv_data->gpio_cb, hc_sr04_gpio_callback,
 	                   BIT(CONFIG_HC_SR04_GPIO_PIN_NUM_1));
