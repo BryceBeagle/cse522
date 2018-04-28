@@ -11,7 +11,7 @@
 
 struct hc_sr04_data {
 	struct device *gpio;
-	struct device *exp;
+	int trig_gpio_pin;
 	struct gpio_callback gpio_cb;
 	u64_t distance;
 	struct k_sem data_sem;

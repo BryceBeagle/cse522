@@ -8,10 +8,18 @@ menuconfig HC_SR04
 	help
 	  Enable driver for HC_SR04 ultrasonic range sensor.
 
-config HC_SR04_NAME
+config HC_SR04_0_NAME
 	string
 	prompt "Driver name"
-	default "HR-SR04"
+	default "HR-SR04_0"
+	depends on HC_SR04
+	help
+	  Device name with which the HC_SR04 sensor is identified.
+
+config HC_SR04_1_NAME
+	string
+	prompt "Driver name"
+	default "HR-SR04_1"
 	depends on HC_SR04
 	help
 	  Device name with which the HC_SR04 sensor is identified.
@@ -25,16 +33,7 @@ config HC_SR04_GPIO_DEV_NAME
 	  The device name of the GPIO device to which the HC_SR04 data-ready
 	  pin is connected.
 
-config HC_SR04_EXP_DEV_NAME
-	string
-	prompt "EXP device"
-	default "EXP1"
-	depends on HC_SR04
-	help
-	  The device name of the EXP device to which the HC_SR04 data-ready
-	  pin is connected.
-
-config HC_SR04_GPIO_PIN_NUM_1
+config HC_SR04_0_GPIO_PIN_ECHO
 	int
 	prompt "Interrupt GPIO pin number"
 	default 3
@@ -43,7 +42,34 @@ config HC_SR04_GPIO_PIN_NUM_1
 	  The number of the GPIO on which the data-ready signal from the HC_SR04
 	  chip will be received.
 
-config HC_SR04_GPIO_PIN_NUM_2
+config HC_SR04_0_SHIELD_PIN_ECHO
+	int
+	prompt "Interrupt GPIO pin number"
+	default 0
+	depends on HC_SR04
+	help
+	  The number of the GPIO on which the data-ready signal from the HC_SR04
+	  chip will be received.
+
+config HC_SR04_1_GPIO_PIN_ECHO
+	int
+	prompt "Interrupt GPIO pin number"
+	default 4
+	depends on HC_SR04
+	help
+	  The number of the GPIO on which the data-ready signal from the HC_SR04
+	  chip will be received.
+
+config HC_SR04_1_SHIELD_PIN_ECHO
+	int
+	prompt "Interrupt GPIO pin number"
+	default 1
+	depends on HC_SR04
+	help
+	  The number of the GPIO on which the data-ready signal from the HC_SR04
+	  chip will be received.
+
+config HC_SR04_0_GPIO_PIN_TRIG
 	int
 	prompt "Interrupt GPIO pin number"
 	default 5
@@ -52,38 +78,29 @@ config HC_SR04_GPIO_PIN_NUM_2
 	  The number of the GPIO on which the data-ready signal from the HC_SR04
 	  chip will be received.
 
-config HC_SR04_EXP_PIN_NUM_1
+config HC_SR04_0_SHIELD_PIN_TRIG
 	int
-	prompt "Interrupt EXP pin 1 number"
-	default 0
-	depends on HC_SR04
-	help
-	  The number of the EXP on which the data-ready signal from the HC_SR04
-	  chip will be received.
-
-config HC_SR04_EXP_PIN_NUM_2
-	int
-	prompt "Interrupt EXP pin 2 number"
-	default 1
-	depends on HC_SR04
-	help
-	  The number of the EXP on which the data-ready signal from the HC_SR04
-	  chip will be received.
-
-config HC_SR04_EXP_PIN_NUM_3
-	int
-	prompt "Interrupt EXP pin 1 number"
+	prompt "Interrupt GPIO pin number"
 	default 2
 	depends on HC_SR04
 	help
-	  The number of the EXP on which the data-ready signal from the HC_SR04
+	  The number of the GPIO on which the data-ready signal from the HC_SR04
 	  chip will be received.
 
-config HC_SR04_EXP_PIN_NUM_4
+config HC_SR04_1_GPIO_PIN_TRIG
 	int
-	prompt "Interrupt EXP pin 2 number"
+	prompt "Interrupt GPIO pin number"
+	default 6
+	depends on HC_SR04
+	help
+	  The number of the GPIO on which the data-ready signal from the HC_SR04
+	  chip will be received.
+
+config HC_SR04_1_SHIELD_PIN_TRIG
+	int
+	prompt "Interrupt GPIO pin number"
 	default 3
 	depends on HC_SR04
 	help
-	  The number of the EXP on which the data-ready signal from the HC_SR04
+	  The number of the GPIO on which the data-ready signal from the HC_SR04
 	  chip will be received.

@@ -15,7 +15,8 @@
 //must implement checks and retrys for when device is busy
 
 #define ADDRESS_COUNT (32*1024)
-#define PAGE_COUNT (ADDRESS_COUNT/64)
+#define PAGE_SIZE (64)
+#define PAGE_COUNT (ADDRESS_COUNT/PAGE_SIZE)
 #define EEPROM_ADDRESS 0xA0
 #define READ 0x01
 
@@ -82,7 +83,7 @@ static int i2c_flash_wb_erase(struct device *dev, off_t offset, size_t size)
 	u8_t zeros[64];
 	memset(zeros, 0, sizeof(zeros));
 
-	for(int i = 0; i < size; i++)
+	for(off_t i = offset; i < size; i++)
 	{
 		i2c_flash_wb_write(dev, i, zeros, sizeof(zeros));
 	}

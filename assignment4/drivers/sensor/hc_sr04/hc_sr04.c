@@ -10,6 +10,9 @@
 #include <sensor.h>
 #include <misc/util.h>
 #include <misc/__assert.h>
+#include <board.h>
+#include <pinmux.h>
+
 
 #include "hc_sr04.h"
 
@@ -25,12 +28,13 @@ static void hc_sr04_gpio_callback(struct device *dev,
 				  struct gpio_callback *cb, u32_t pins)
 {
 	u64_t now = tsc_read();
+
 	struct hc_sr04_data *drv_data =
 		CONTAINER_OF(cb, struct hc_sr04_data, gpio_cb);
 
 	ARG_UNUSED(pins);
 
-	drv_data->distance = (now - drv_data->distance) * 1000000 / 400000000 / 58;
+	drv_data->distance = (now - drv_data->distance) * 400 / 58;
 
 	k_sem_give(&drv_data->data_sem);
 }
@@ -42,11 +46,12 @@ static int hc_sr04_sample_fetch(struct device *dev, enum sensor_channel chan)
 	k_sem_take(&drv_data->data_sem, K_FOREVER);
 
 	drv_data->distance = tsc_read();
-	gpio_pin_write(drv_data->gpio, CONFIG_HC_SR04_GPIO_PIN_NUM_2, PIN_HIGH);
+	gpio_pin_write(drv_data->gpio, drv_data->trig_gpio_pin, PIN_HIGH);
 	k_busy_wait(10);
-	gpio_pin_write(drv_data->gpio, CONFIG_HC_SR04_GPIO_PIN_NUM_2, PIN_LOW);
+	gpio_pin_write(drv_data->gpio, drv_data->trig_gpio_pin, PIN_LOW);
 
 	k_sem_take(&drv_data->data_sem, K_FOREVER);
+	k_sem_give(&drv_data->data_sem);
 
 	return 0;
 }
@@ -73,55 +78,77 @@ static const struct sensor_driver_api hc_sr04_driver_api = {
 	.channel_get = hc_sr04_channel_get,
 };
 
-static int hc_sr04_init(struct device *dev)
+static int hc_sr04_0_init(struct device *dev)
 {
 	struct hc_sr04_data *drv_data = dev->driver_data;
+	struct device *pinmux = device_get_binding(CONFIG_PINMUX_NAME);
 
-	drv_data->exp  = device_get_binding(CONFIG_HC_SR04_EXP_DEV_NAME);
 	drv_data->gpio = device_get_binding(CONFIG_HC_SR04_GPIO_DEV_NAME);
-	if (drv_data->exp == NULL) {
-		SYS_LOG_DBG("Failed to get pointer to %s device",
-			    CONFIG_HC_SR04_EXP_DEV_NAME);
-		return -EINVAL;
-	}
+	drv_data->trig_gpio_pin = CONFIG_HC_SR04_0_GPIO_PIN_TRIG;
+
 	if (drv_data->gpio == NULL) {
 		SYS_LOG_DBG("Failed to get pointer to %s device",
 			    CONFIG_HC_SR04_GPIO_DEV_NAME);
 		return -EINVAL;
 	}
 
-	k_sem_init(&drv_data->data_sem, 0, 1);
+	k_sem_init(&drv_data->data_sem, 1, 1);
 
 	/* setup data ready gpio trigger on shield pin 2*/
-	gpio_pin_configure(drv_data->exp, CONFIG_HC_SR04_EXP_PIN_NUM_3, GPIO_DIR_OUT);
-	gpio_pin_write(drv_data->exp, CONFIG_HC_SR04_EXP_PIN_NUM_3, PIN_LOW);
-	gpio_pin_configure(drv_data->exp, CONFIG_HC_SR04_EXP_PIN_NUM_4, GPIO_DIR_OUT);
-	gpio_pin_write(drv_data->exp, CONFIG_HC_SR04_EXP_PIN_NUM_4, PIN_LOW);
-	gpio_pin_configure(drv_data->gpio, CONFIG_HC_SR04_GPIO_PIN_NUM_2, GPIO_DIR_OUT);
-	gpio_pin_write(drv_data->gpio, CONFIG_HC_SR04_GPIO_PIN_NUM_2, PIN_LOW);
+	pinmux_pin_set(pinmux, CONFIG_HC_SR04_0_SHIELD_PIN_TRIG, PINMUX_FUNC_A);
 
-	/* setup data ready gpio interrupt on shield pin 0*/
-	gpio_pin_configure(drv_data->exp, CONFIG_HC_SR04_EXP_PIN_NUM_1, GPIO_DIR_OUT);
-	gpio_pin_write(drv_data->exp, CONFIG_HC_SR04_EXP_PIN_NUM_1, PIN_HIGH);
-	gpio_pin_configure(drv_data->exp, CONFIG_HC_SR04_EXP_PIN_NUM_2, GPIO_DIR_OUT);
-	gpio_pin_write(drv_data->exp, CONFIG_HC_SR04_EXP_PIN_NUM_2, PIN_LOW);
-
-	gpio_pin_configure(drv_data->gpio, CONFIG_HC_SR04_GPIO_PIN_NUM_1,
+	// /* setup data ready gpio interrupt on shield pin 0*/
+	pinmux_pin_set(pinmux, CONFIG_HC_SR04_0_SHIELD_PIN_ECHO, PINMUX_FUNC_B);
+	gpio_pin_configure(drv_data->gpio,  CONFIG_HC_SR04_0_GPIO_PIN_ECHO,
 			   GPIO_DIR_IN | GPIO_INT | GPIO_INT_EDGE | GPIO_INT_ACTIVE_HIGH);
-	gpio_init_callback(&drv_data->gpio_cb,
-			   hc_sr04_gpio_callback,
-			   BIT(CONFIG_HC_SR04_GPIO_PIN_NUM_1));
-	if (gpio_add_callback(drv_data->gpio, &drv_data->gpio_cb) < 0) {
-		SYS_LOG_DBG("Failed to set GPIO callback");
-		return -EIO;
-	}
+
+	gpio_init_callback(&drv_data->gpio_cb, hc_sr04_gpio_callback, BIT(CONFIG_HC_SR04_0_GPIO_PIN_ECHO));
+	gpio_add_callback(drv_data->gpio, &drv_data->gpio_cb);
+	gpio_pin_enable_callback(drv_data->gpio, CONFIG_HC_SR04_0_GPIO_PIN_ECHO);
 
 	dev->driver_api = &hc_sr04_driver_api;
 
 	return 0;
 }
 
-static struct hc_sr04_data hc_sr04_data;
+static int hc_sr04_1_init(struct device *dev)
+{
+	struct hc_sr04_data *drv_data = dev->driver_data;
+	struct device *pinmux = device_get_binding(CONFIG_PINMUX_NAME);
 
-DEVICE_INIT(hc_sr04, CONFIG_HC_SR04_NAME, hc_sr04_init, &hc_sr04_data,
+	drv_data->gpio = device_get_binding(CONFIG_HC_SR04_GPIO_DEV_NAME);
+	drv_data->trig_gpio_pin = CONFIG_HC_SR04_1_GPIO_PIN_TRIG;
+
+	if (drv_data->gpio == NULL) {
+		SYS_LOG_DBG("Failed to get pointer to %s device",
+			    CONFIG_HC_SR04_GPIO_DEV_NAME);
+		return -EINVAL;
+	}
+
+	k_sem_init(&drv_data->data_sem, 1, 1);
+
+	/* setup data ready gpio trigger on shield pin 3*/
+	pinmux_pin_set(pinmux, CONFIG_HC_SR04_1_SHIELD_PIN_TRIG, PINMUX_FUNC_A);
+
+	// /* setup data ready gpio interrupt on shield pin 1*/
+	pinmux_pin_set(pinmux, CONFIG_HC_SR04_1_SHIELD_PIN_ECHO, PINMUX_FUNC_B);
+	gpio_pin_configure(drv_data->gpio,  CONFIG_HC_SR04_1_GPIO_PIN_ECHO,
+			   GPIO_DIR_IN | GPIO_INT | GPIO_INT_EDGE | GPIO_INT_ACTIVE_HIGH);
+
+	gpio_init_callback(&drv_data->gpio_cb, hc_sr04_gpio_callback, BIT(CONFIG_HC_SR04_1_GPIO_PIN_ECHO));
+	gpio_add_callback(drv_data->gpio, &drv_data->gpio_cb);
+	gpio_pin_enable_callback(drv_data->gpio, CONFIG_HC_SR04_1_GPIO_PIN_ECHO);
+
+	dev->driver_api = &hc_sr04_driver_api;
+
+	return 0;
+}
+
+static struct hc_sr04_data hc_sr04_0_data;
+static struct hc_sr04_data hc_sr04_1_data;
+
+DEVICE_INIT(hc_sr04_0, CONFIG_HC_SR04_0_NAME, hc_sr04_0_init, &hc_sr04_0_data,
+	    NULL, POST_KERNEL, CONFIG_SENSOR_INIT_PRIORITY);
+
+DEVICE_INIT(hc_sr04_1, CONFIG_HC_SR04_1_NAME, hc_sr04_1_init, &hc_sr04_1_data,
 	    NULL, POST_KERNEL, CONFIG_SENSOR_INIT_PRIORITY);
