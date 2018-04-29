@@ -12,7 +12,8 @@
 #include <misc/__assert.h>
 #include <board.h>
 #include <pinmux.h>
-
+#include <stdio.h>
+#include <sys_clock.h>
 
 #include "hc_sr04.h"
 
@@ -34,7 +35,7 @@ static void hc_sr04_gpio_callback(struct device *dev,
 
 	ARG_UNUSED(pins);
 
-	drv_data->distance = (now - drv_data->distance) * 400 / 58;
+	drv_data->distance = (SYS_CLOCK_HW_CYCLES_TO_NS64(now - drv_data->distance)/1000) / 58;
 
 	k_sem_give(&drv_data->data_sem);
 }
@@ -50,7 +51,9 @@ static int hc_sr04_sample_fetch(struct device *dev, enum sensor_channel chan)
 	k_busy_wait(10);
 	gpio_pin_write(drv_data->gpio, drv_data->trig_gpio_pin, PIN_LOW);
 
-	k_sem_take(&drv_data->data_sem, K_FOREVER);
+	if(k_sem_take(&drv_data->data_sem, 30) == -EAGAIN){
+		drv_data->distance = 400;
+	}
 	k_sem_give(&drv_data->data_sem);
 
 	return 0;

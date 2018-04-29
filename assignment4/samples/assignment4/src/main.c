@@ -11,6 +11,7 @@
 #include <string.h>
 #include <shell/shell.h>
 #include <gpio.h>
+#include <sys_clock.h>
 #include "main.h"
 
 #define STACKSIZE 1024
@@ -36,9 +37,21 @@ void radar_read(void *hc_device, void *b, void *c) {
 
 		sensor_channel_get(HCSR, SENSOR_CHAN_PROX, &distance);
 
-		printk("%d -- Distance: %d.%06d\n", (int)b, distance.val1, distance.val2);
+		// printk("%d -- Distance: %dcm\n", (int)b, distance.val1);
 
-		k_sleep((20000000 - (now - tsc_read())) * 3 / 1000000);
+		u64_t clocks = tsc_read() - now;
+		int completion_time = (int) (SYS_CLOCK_HW_CYCLES_TO_NS64(clocks)/1000000);
+		int time_to_sleep = 60 - completion_time;
+
+		// printk("Completed in %dms(%llu clocks), Sleeping for %dms\n", completion_time, clocks, time_to_sleep);
+
+		if(time_to_sleep < 0){
+			//timed out, give sensor some time to return
+			k_sleep(60);
+		}else{
+			//working as intended, sleeping to reach 60ms period length
+			k_sleep(time_to_sleep);
+		}
 	}
 }
 
@@ -128,5 +141,6 @@ void main(void) {
 	k_thread_suspend(thread_references.hcsr_thread_1_tid);
 
 	// Set up shell
+	printk("Hertz %d\n", sys_clock_hw_cycles_per_sec);
 	init_shell();
 }
