@@ -43,6 +43,7 @@ static int i2c_flash_wb_read(struct device *dev, off_t offset, void *data,
 static int i2c_flash_wb_write(struct device *dev, off_t offset,
 			      const void *data, size_t len)
 {
+	printk("Writing to EEPROM\n");
 	// only allow page writes (64 bytes)
 	// offset is relative to pages rather than bytes
 	struct i2c_flash_data *const driver_data = dev->driver_data;
@@ -61,6 +62,9 @@ static int i2c_flash_wb_write(struct device *dev, off_t offset,
 	}
 
 	k_sem_give(&driver_data->sem);
+
+	printk("Done writing to EEPROM\n");
+
 	return ret;
 }
 
