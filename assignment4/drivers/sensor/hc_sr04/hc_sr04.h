@@ -11,13 +11,15 @@
 
 struct hc_sr04_data {
 	struct device *gpio;
-	int trig_gpio_pin;
 	struct gpio_callback gpio_cb;
-	u64_t distance;
 	struct k_sem data_sem;
+
+	uint32_t trig_gpio_pin;
+
+	u64_t timestamp;
+	u64_t distance;
+
 };
 
-#define SYS_LOG_DOMAIN "HC_SR04"
-#define SYS_LOG_LEVEL CONFIG_SYS_LOG_SENSOR_LEVEL
 #include <logging/sys_log.h>
 #endif
