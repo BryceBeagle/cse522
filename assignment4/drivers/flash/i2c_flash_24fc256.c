@@ -16,9 +16,6 @@
 //view spi_flash_w25qxxdv.c for reference
 //must implement checks and retrys for when device is busy
 
-#define ADDRESS_COUNT (32*1024)
-#define PAGE_SIZE (64)
-#define PAGE_COUNT (ADDRESS_COUNT/PAGE_SIZE)
 #define EEPROM_ADDRESS 0xA0
 #define READ 0x01
 
@@ -84,18 +81,16 @@ static int i2c_flash_wb_write_protection_set(struct device *dev, bool enable)
 
 static int i2c_flash_wb_erase(struct device *dev, off_t offset, size_t size)
 {
+
 	// call write with an array of zeros for every page
 	struct i2c_flash_data *const driver_data = dev->driver_data;
 	k_sem_take(&driver_data->sem, K_FOREVER);
 
-	u8_t zeros[64];
+	u8_t zeros[64 * (size - offset)];
 	memset(zeros, 0, sizeof(zeros));
 
 	struct device *i2c_dev = device_get_binding(CONFIG_I2C_0_NAME);
-	for(off_t i = offset; i < size; i++)
-	{
-		i2c_flash_wb_write(i2c_dev, i, zeros, sizeof(zeros));
-	}
+	i2c_flash_wb_write(i2c_dev, offset, zeros, sizeof(zeros) / sizeof(zeros[0]));
 
 	k_sem_give(&driver_data->sem);
 
@@ -116,7 +111,7 @@ static int i2c_flash_init(struct device *dev)
 	struct i2c_flash_data *const data = dev->driver_data;
 	int ret;
 
-	// Faults at program address 0x0008
+	// Faults at program address 0x0008 for some reason
 //	printk("Setting pinmux\n");
 //	struct device *pinmux = device_get_binding(CONFIG_PINMUX_NAME);
 //	pinmux_pin_set(pinmux, 18, PINMUX_FUNC_C);  // SDA

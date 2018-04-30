@@ -175,7 +175,7 @@ int cmd_start_recording(int argc, char *argv[]) {
 	size_t p = (size_t) strtol(val, NULL, 10);
 
 //	// Clear p pages of previous record
-//	flash_erase(EEPROM, 0, 512);
+	flash_erase(EEPROM, 0, 512);
 
 	measurements = (eeprom_buffers) {
 			.in_buffer = in_buffer,
