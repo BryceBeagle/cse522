@@ -19,5 +19,7 @@ struct i2c_flash_data {
 	struct k_sem sem;
 };
 
+struct k_sem eeprom_write_sem;
+
 
 #endif /* __i2c_FLASH_W25QXXDV_H__ */
