@@ -137,7 +137,7 @@ void write_distance_eeprom(void *device, void *buffer, void *page) {
 
 	struct device *EEPROM = device;
 	eeprom_entry *out_buffer = buffer;
-	size_t page_offset = *(size_t *) page * sizeof(buffer);
+	size_t page_offset = *(size_t *) page;
 
 	k_sem_take(&eeprom_write_sem, K_FOREVER);
 
