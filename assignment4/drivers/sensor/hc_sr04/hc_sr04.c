@@ -38,7 +38,7 @@ static void hc_sr04_gpio_callback(struct device *dev,
 	drv_data->timestamp = SYS_CLOCK_HW_CYCLES_TO_NS64(drv_data->timestamp);
 
 	// Calculate distance from duration
-	drv_data->distance = (drv_data->timestamp * 340) / (2 * 10000000);
+	drv_data->distance = drv_data->timestamp / 58000;
 
 	// Release semaphore so main loop can continue
 	k_sem_give(&drv_data->data_sem);
