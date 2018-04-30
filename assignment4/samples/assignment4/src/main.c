@@ -1,9 +1,3 @@
-/*
- * Copyright (c) 2015 Intel Corporation
- *
- * SPDX-License-Identifier: Apache-2.0
- */
-
 #include <zephyr.h>
 #include <flash.h>
 #include <sensor.h>
@@ -13,7 +7,6 @@
 #include <gpio.h>
 #include <sys_clock.h>
 #include "main.h"
-#include "../../../drivers/flash/i2c_flash_24fc256.h"
 
 #define STACKSIZE 1024
 
@@ -26,6 +19,7 @@ eeprom_buffers measurements;
 struct device *EEPROM;
 bool is_recording = false;
 struct k_sem buffer_write_sem;
+struct k_sem eeprom_write_sem;
 
 eeprom_entry in_buffer[8];
 eeprom_entry out_buffer[8];
