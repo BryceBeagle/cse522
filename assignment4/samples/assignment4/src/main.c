@@ -27,6 +27,9 @@ struct device *EEPROM;
 bool is_recording = false;
 struct k_sem buffer_write_sem;
 
+eeprom_entry in_buffer[8];
+eeprom_entry out_buffer[8];
+
 void radar_read(void *hc_device, void *b, void *c) {
 
 	ARG_UNUSED(c);
@@ -45,15 +48,11 @@ void radar_read(void *hc_device, void *b, void *c) {
 		u32_t timestamp = (u32_t) measurement.val1;
 		u32_t distance = (u32_t) measurement.val2;
 
-		printk("%i -- t: %i | d: %i\n", *(int *) b, timestamp, distance);
-
 		if (is_recording) {
-			// TODO: Pass num pages
+			printk("%i -- t: %i | d: %i\n", *(int *) b, timestamp, distance);
 			if (save_distance(timestamp, distance)) {
 				// Save distance returns -1 if pages full
 				is_recording = false;
-				k_free (measurements.in_buffer);
-				k_free (measurements.out_buffer);
 			}
 		}
 
@@ -78,8 +77,12 @@ int save_distance(uint32_t timestamp, uint32_t distance) {
 			.distance = distance
 	};
 
+	printk("Taking buffer_write semaphore\n");
+
 	// Prevent multiple sensors from modifying buffer at once
 	k_sem_take(&buffer_write_sem, K_FOREVER);
+
+	printk("buffer_write semaphore acquired\n");
 
 	// Add new measurement to buffer
 	measurements.in_buffer[measurements.num_entries++] = measurement;
@@ -87,6 +90,8 @@ int save_distance(uint32_t timestamp, uint32_t distance) {
 	// TODO: Use a const for max
 	// We need to send
 	if (measurements.num_entries >= 8) {
+
+		printk("Page %zu complete\n", measurements.num_pages);
 
 		// Prevent buffer being changed when at max capacity and eeprom is not
 		// Done writing
@@ -102,6 +107,7 @@ int save_distance(uint32_t timestamp, uint32_t distance) {
 		k_sem_give(&eeprom_write_sem);
 
 		// Write buffer to eeprom
+		printk("Opening thread to write to EEPROM\n");
 		int hc_sr_priority = k_thread_priority_get(k_current_get()) + 1;
 		k_thread_create(&thread_references.eeprom_writer_thread,
 		                stack_area_1, STACKSIZE,
@@ -117,6 +123,8 @@ int save_distance(uint32_t timestamp, uint32_t distance) {
 			ret = 1;
 		}
 	}
+
+	printk("Giving buffer_write semaphore\n");
 
 	// Allow another thread to touch the buffer
 	k_sem_give(&buffer_write_sem);
@@ -171,12 +179,12 @@ int cmd_start_recording(int argc, char *argv[]) {
 	const char *val = argv[1];
 	size_t p = (size_t) strtol(val, NULL, 10);
 
-	// Clear p pages of previous record
-	flash_erase(EEPROM, 0, p);
+//	// Clear p pages of previous record
+//	flash_erase(EEPROM, 0, 512);
 
 	measurements = (eeprom_buffers) {
-			.in_buffer = k_malloc(8 * sizeof(eeprom_entry)),
-			.out_buffer = k_malloc(8 * sizeof(eeprom_entry)),
+			.in_buffer = in_buffer,
+			.out_buffer = out_buffer,
 			.num_entries = 0,
 			.num_pages = 0,
 			.max_pages = p,
@@ -225,6 +233,7 @@ void main(void) {
 	printk("EEPROM == null: %i\n", EEPROM == NULL);
 
 	k_sem_init(&eeprom_write_sem, 1, 1);
+	k_sem_init(&buffer_write_sem, 1, 1);
 
 	int hc_sr_priority = k_thread_priority_get(k_current_get()) + 1;
 
