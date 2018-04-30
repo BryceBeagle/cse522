@@ -81,16 +81,18 @@ static int i2c_flash_wb_write_protection_set(struct device *dev, bool enable)
 
 static int i2c_flash_wb_erase(struct device *dev, off_t offset, size_t size)
 {
-
 	// call write with an array of zeros for every page
 	struct i2c_flash_data *const driver_data = dev->driver_data;
 	k_sem_take(&driver_data->sem, K_FOREVER);
 
-	u8_t zeros[64 * (size - offset)];
+	u8_t zeros[64];
 	memset(zeros, 0, sizeof(zeros));
 
 	struct device *i2c_dev = device_get_binding(CONFIG_I2C_0_NAME);
-	i2c_flash_wb_write(i2c_dev, offset, zeros, sizeof(zeros) / sizeof(zeros[0]));
+	for(off_t i = offset; i < size; i++)
+	{
+		i2c_flash_wb_write(i2c_dev, i, zeros, sizeof(zeros));
+	}
 
 	k_sem_give(&driver_data->sem);
 
