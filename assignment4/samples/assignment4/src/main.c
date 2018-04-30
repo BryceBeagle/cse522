@@ -49,7 +49,7 @@ void radar_read(void *hc_device, void *b, void *c) {
 		u32_t distance = (u32_t) measurement.val2;
 
 		if (is_recording) {
-			printk("%i -- t: %i | d: %i\n", *(int *) b, timestamp, distance);
+			printk("%p -- t: %i | d: %i\n", b, timestamp, distance);
 			if (save_distance(timestamp, distance)) {
 				// Save distance returns -1 if pages full
 				is_recording = false;
@@ -91,7 +91,7 @@ int save_distance(uint32_t timestamp, uint32_t distance) {
 	// We need to send
 	if (measurements.num_entries >= 8) {
 
-		printk("Page %zu complete\n", measurements.num_pages);
+		printk("Page %zu complete\n", measurements.num_pages + 1);
 
 		// Prevent buffer being changed when at max capacity and eeprom is not
 		// Done writing
@@ -113,7 +113,7 @@ int save_distance(uint32_t timestamp, uint32_t distance) {
 		                stack_area_1, STACKSIZE,
 		                write_distance_eeprom, EEPROM,
 		                measurements.out_buffer,
-		                &(measurements.max_pages),
+		                &(measurements.num_pages),
 		                hc_sr_priority, 0, K_NO_WAIT);
 
 		measurements.num_entries = 0;
@@ -133,16 +133,15 @@ int save_distance(uint32_t timestamp, uint32_t distance) {
 
 }
 
-void write_distance_eeprom(void *device,
-                           void *buffer, void *offset) {
+void write_distance_eeprom(void *device, void *buffer, void *page) {
 
 	struct device *EEPROM = device;
 	eeprom_entry *out_buffer = buffer;
-	size_t page = *(size_t *) offset;
+	size_t page_offset = *(size_t *) page * sizeof(buffer);
 
 	k_sem_take(&eeprom_write_sem, K_FOREVER);
 
-	flash_write(EEPROM, page, out_buffer, 8);
+	flash_write(EEPROM, page_offset, out_buffer, 8);
 
 	k_sem_give(&eeprom_write_sem);
 
@@ -205,12 +204,14 @@ int cmd_dump_distances(int argc, char *argv[]) {
 	off_t p1 = (off_t) strtol(val1, NULL, 10);
 	off_t p2 = (off_t) strtol(val2, NULL, 10);
 
-	int page_buffer[64/sizeof(int)];
+	u32_t page_buffer[64/sizeof(u32_t)];
 
 	for (off_t i = p1; i <= p2; i++) {
 		flash_read(EEPROM, i, page_buffer, sizeof(page_buffer));
-		for (int x = 0; x < 64/sizeof(int); x++) {
-			printk("%d\n", page_buffer[x]);
+		for (int j = 0; j < 64/sizeof(u32_t); j++) {
+			u32_t timestamp = page_buffer[j++];
+			u32_t distance = page_buffer[j];
+			printk("Timestamp: %8i | Distance: %8i\n", timestamp, distance);
 		}
 	}
 
