@@ -61,7 +61,8 @@ static int hc_sr04_sample_fetch(struct device *dev, enum sensor_channel chan)
 	// Wait for callback to finish
 	if(k_sem_take(&drv_data->data_sem, 30) == -EAGAIN){
 		// TODO: Comment why?
-		drv_data->timestamp = 400;
+		drv_data->timestamp = 0;
+		drv_data->distance = 400;
 	}
 
 	// Release semaphore
