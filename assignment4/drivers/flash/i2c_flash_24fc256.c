@@ -11,7 +11,7 @@
 #include <init.h>
 #include <string.h>
 #include "i2c_flash_24fc256.h"
-//view i2c_flash_w25qxxdv.c for reference
+//view spi_flash_w25qxxdv.c for reference
 //must implement checks and retrys for when device is busy
 
 #define ADDRESS_COUNT (32*1024)
@@ -53,8 +53,8 @@ static int i2c_flash_wb_write(struct device *dev, off_t offset,
 	if(len > 64){
 		ret = -1;
 	}else{
-		buffer[0] = (offset & 0xFF00) >> 8;
-		buffer[1] = (offset & 0x00C0) >> 0;
+		buffer[0] = (u8_t) (offset & 0xFF00) >> 8;
+		buffer[1] = (u8_t) (offset & 0x00C0) >> 0;
 		memcpy(buffer+2, data, len);
 
 		ret = i2c_write(driver_data->i2c, buffer, len, EEPROM_ADDRESS);
@@ -83,9 +83,10 @@ static int i2c_flash_wb_erase(struct device *dev, off_t offset, size_t size)
 	u8_t zeros[64];
 	memset(zeros, 0, sizeof(zeros));
 
+	struct device *i2c_dev = device_get_binding(CONFIG_I2C_0_NAME);
 	for(off_t i = offset; i < size; i++)
 	{
-		i2c_flash_wb_write(dev, i, zeros, sizeof(zeros));
+		i2c_flash_wb_write(i2c_dev, i, zeros, sizeof(zeros));
 	}
 
 	k_sem_give(&driver_data->sem);
@@ -107,19 +108,21 @@ static int i2c_flash_init(struct device *dev)
 	struct i2c_flash_data *const data = dev->driver_data;
 	int ret;
 
-	i2c_dev = device_get_binding(CONFIG_I2C_FLASH_24FC256_I2C_NAME);
+	i2c_dev = device_get_binding(CONFIG_I2C_0_NAME);
 	if (!i2c_dev) {
 		return -EIO;
 	}
 
 	data->i2c = i2c_dev;
-
 	k_sem_init(&data->sem, 1, UINT_MAX);
 
-	ret = i2c_configure(dev, 0);
+	u32_t i2c_cfg = I2C_SPEED_SET(I2C_SPEED_STANDARD) | I2C_MODE_MASTER;
+	ret = i2c_configure(i2c_dev, i2c_cfg);
 	if (!ret) {
 		dev->driver_api = &i2c_flash_api;
 	}
+
+	printk("Ret: %i", ret);
 
 	return ret;
 }
