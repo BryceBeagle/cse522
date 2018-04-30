@@ -7,6 +7,8 @@
 #include <gpio.h>
 #include <sys_clock.h>
 #include "main.h"
+#include <pinmux.h>
+
 
 #define STACKSIZE 1024
 
@@ -200,17 +202,34 @@ int cmd_dump_distances(int argc, char *argv[]) {
 
 	u32_t page_buffer[64/sizeof(u32_t)];
 
+	int ret;
 	for (off_t i = p1; i <= p2; i++) {
-		flash_read(EEPROM, i, page_buffer, sizeof(page_buffer));
+		ret = flash_read(EEPROM, i, page_buffer, sizeof(page_buffer));
 		for (int j = 0; j < 64/sizeof(u32_t); j++) {
 			u32_t timestamp = page_buffer[j++];
 			u32_t distance = page_buffer[j];
-			printk("Timestamp: %8i | Distance: %8i\n", timestamp, distance);
+			printk("Timestamp: %8i | Distance: %8i\n | Ret: %i", timestamp, distance, ret);
 		}
 	}
 
 	return 0;
 
+
+
+}
+
+int cmd_test(int argc, char *argv[]) {
+
+	u8_t data_out = 20, data_in = 0xFF;
+
+	int ret;
+	ret = flash_write(EEPROM, 0, &data_out, 1);
+	printk("Sent %i : %i\n", data_out, ret);
+
+	ret = flash_read(EEPROM, 0, &data_in, 1);
+	printk("Received %i : %i\n", data_in, ret);
+
+	return 0;
 }
 
 void init_shell() {
@@ -220,6 +239,13 @@ void init_shell() {
 }
 
 void main(void) {
+
+	printk("Setting pinmux\n");
+	struct device *pinmux = device_get_binding(CONFIG_PINMUX_NAME);
+	pinmux_pin_set(pinmux, 18, PINMUX_FUNC_C);  // SDA
+	pinmux_pin_set(pinmux, 19, PINMUX_FUNC_C);  // SCL
+	printk("Set pinmux\n");
+
 
 	EEPROM = device_get_binding(CONFIG_I2C_FLASH_24FC256_DRV_NAME);
 	struct device *HCSR_0 = device_get_binding(CONFIG_HC_SR04_0_NAME);

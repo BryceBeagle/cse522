@@ -9,6 +9,7 @@ void write_distance_eeprom(void *device, void *buffer, void *page);
 int cmd_enable_distance_sensors(int argc, char *argv[]);
 int cmd_start_recording(int argc, char *argv[]);
 int cmd_dump_distances(int argc, char *argv[]);
+int cmd_test(int argc, char *argv[]);
 void init_shell();
 
 typedef struct thread_index_card {
@@ -38,6 +39,7 @@ static const struct shell_cmd commands[] = {
 		{"Enable", cmd_enable_distance_sensors},
 		{"Start",  cmd_start_recording},
 		{"Dump",   cmd_dump_distances},
+		{"Test",   cmd_test},
 		{NULL, NULL}
 };
 
