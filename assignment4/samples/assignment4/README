@@ -1,6 +1,41 @@
-This is a sample app to read and write
-the Fujitsu MB85RC256V FRAM chip via I2C
-on the Quark SE Sensor Subsystem.
+Assignment 4
+Team 18
+Bryce Beagle	1207462889
+Brian Kolden	1204854985
 
-This assumes the slave address of FRAM is 0x50,
-where A0, A1, and A2 are all tied to ground.
+
+Building the assignment
+
+	Follow the build instructions 1-3 found in section "Building a Sample Application" in http://docs.zephyrproject.org/1.10.0/getting_started/getting_started.html
+
+	Now move all the Kconfig, CMakeList.txt, and project to their respective locations
+	Example:
+		cp PROJECT_DIR/drivers/Kconfig ZEPHYR_DIR/drivers/Kconfig
+		...
+		cp PROJECT_DIR/samples/cse522-team18-assgn04 ZEPHYR_DIR/samples/cse522-team18-assgn04
+
+	Next, move to "ZEPHYR_DIR/samples/cse522-team18-assgn04/build/galileo"
+	$ cmake -DBOARD=galileo ../..
+	$ make
+
+	Now setup the SD card as per http://docs.zephyrproject.org/1.10.0/boards/x86/galileo/doc/galileo.html and boot.
+
+Board Wiring
+
+	The board is connected to 2 HCSR04 devices and 1 EEPROM.
+
+	The first HCSR04 has Trig connected to shield pin 2 and Echo to shield pin 0
+	The second HCSR04 has Trig connected to shield pin 3 and Echo to shield pin 1
+
+	The EEPROM has SCL connected to shield pin 19 and SCA to shield pin 18.
+	Additionally A0, A1, A2, and WP are connected to ground.
+
+Running
+
+	The program uses the Zephyr Shell that accepts 3 functions
+
+	Enable n (n=0, 1,or 2, to enable none, HCSR0, or HCSR1)
+
+	Start p (to erase all  pages  of  the EEPROM  and  to start  collecting  and  recording  distance measures from page 0. The operation stops until p pages of EEPROM are filled, where p <= 512.)
+
+	Dump p1 p2 (p1 <= p2, to dump (print out) the distance measures recorded in pages p1 to p2 on console)
